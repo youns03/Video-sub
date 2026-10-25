@@ -30,7 +30,7 @@ data class DownloadProgress(
 
 object VideoDownloaderService {
 
-    const val TARGET_RESOLUTION = "360p (SD - 640x360)"
+    const val TARGET_RESOLUTION = "Original source (no transcoding)"
     const val TARGET_CODEC = "MP4 (H.264 / AAC)"
 
     /** Downloads a local file or a direct media URL; never substitutes demo content. */
