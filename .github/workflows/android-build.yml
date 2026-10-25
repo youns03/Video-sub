@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-apk:
-    name: Build and publish debug APK
+    name: Build and upload debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -52,19 +52,12 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
-        env:
-          SUBVID_EXTRACTOR_URL: ${{ secrets.SUBVID_EXTRACTOR_URL }}
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Publish APK as a GitHub Release asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-          APK_PATH: app/build/outputs/apk/debug/app-debug.apk
-          RUN_TAG: apk-build-${{ github.run_number }}
-        run: |
-          test -s "$APK_PATH"
-          gh release create "$RUN_TAG" "$APK_PATH#SubVid-debug.apk" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "SubVid APK build ${GITHUB_RUN_NUMBER}" \
-            --notes "Built from main commit ${GITHUB_SHA}. This is a debug APK." \
-            --latest
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SubVid-debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
