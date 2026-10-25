@@ -105,7 +105,6 @@ class VideoProcessingPipeline(private val context: Context) {
 
         val estimatedDuration = localDuration
         val mediaUrl = validation.cleanUrl
-        val calculatedSizeMb = 0.0
 
         var project = VideoProject(
             id = id,
@@ -115,9 +114,9 @@ class VideoProcessingPipeline(private val context: Context) {
             durationSeconds = estimatedDuration,
             currentStage = PipelineStage.VALIDATING_URL,
             progressPercent = 10,
-            videoFileSizeMb = if (isLocalFile) 0.0 else calculatedSizeMb,
-            videoQuality = if (isLocalFile) "المصدر الأصلي (لم يُحوّل)" else "360p (SD - 640x360)",
-            statusMessage = if (isLocalFile) "جاري تجهيز الفيديو المستورد من الهاتف..." else "جاري التحقق من إمكانية الوصول إلى الفيديو..."
+            videoFileSizeMb = 0.0,
+            videoQuality = "المصدر الأصلي (لم يُحوّل)",
+            statusMessage = "جاري تجهيز الفيديو المستورد من الهاتف..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.VALIDATING_URL, 10, project.statusMessage)
@@ -127,7 +126,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.DOWNLOADING_VIDEO_360P,
             progressPercent = 18,
-            statusMessage = if (isLocalFile) "جاري استيراد ملف الفيديو من الهاتف..." else "جاري حصر الجودة على 360p (SD) وتحميل ملف MP4 بالكامل..."
+            statusMessage = "جاري استيراد ملف الفيديو من الهاتف..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 18, project.statusMessage)
@@ -142,7 +141,7 @@ class VideoProcessingPipeline(private val context: Context) {
             ) { progress ->
                 val pipelineProgress = 18 + (progress.percent * 22 / 100)
                 val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
-                val updatedMsg = "تحميل فعلي: ${progress.downloadedMb}MB$total (${progress.percent}%)"
+                val updatedMsg = "نسخ الملف: ${progress.downloadedMb}MB$total (${progress.percent}%)"
                 _currentProject.value = _currentProject.value?.copy(
                     progressPercent = pipelineProgress,
                     statusMessage = updatedMsg
@@ -191,11 +190,7 @@ class VideoProcessingPipeline(private val context: Context) {
             durationSeconds = copiedDurationSeconds,
             videoFileSizeMb = downloadedFile.length() / 1_000_000.0,
             progressPercent = 40,
-            statusMessage = if (isLocalFile) {
-                "تم استيراد الفيديو بنجاح (${downloadedFile.length() / 1_000_000.0} MB)."
-            } else {
-                "تم تحميل فيديو MP4 بدقة 360p (${calculatedSizeMb} MB) بنجاح."
-            }
+            statusMessage = "تم استيراد الفيديو بنجاح (${downloadedFile.length() / 1_000_000.0} MB)."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 40, project.statusMessage)
