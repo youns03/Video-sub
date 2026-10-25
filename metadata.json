@@ -1,0 +1,6 @@
+{
+  "name": "مترجم الفيديوهات",
+  "description": "تطبيق ذكي لتحويل فيديوهات فيسبوك ويوتيوب الناطقة بالفرنسية إلى ترجمة عربية احترافية مع استخراج المقاطع الصوتية وإنشاء ملفات SRT متزامنة ومحرر فوري للمعاينة والتعديل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
