@@ -20,6 +20,13 @@ object SrtGenerator {
      * Builds a standard compliant SubRip (.srt) file content.
      */
     fun buildSrtContent(segments: List<SubtitleSegment>, includeFrenchSubtitle: Boolean = false): String {
+        require(segments.isNotEmpty()) { "لا توجد مقاطع ترجمة لتصديرها." }
+        require(segments.all { it.startTimeMs >= 0L && it.endTimeMs > it.startTimeMs && it.arabicText.isNotBlank() }) {
+            "توجد مقاطع ترجمة فارغة أو ذات توقيت غير صالح."
+        }
+        require(segments.zipWithNext().all { (first, second) -> second.startTimeMs >= first.startTimeMs }) {
+            "ترتيب توقيتات الترجمة غير صحيح."
+        }
         return buildString {
             segments.forEachIndexed { index, seg ->
                 append("${index + 1}\n")
