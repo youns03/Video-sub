@@ -70,48 +70,42 @@ class VideoProcessingPipeline(private val context: Context) {
             return failedProject
         }
 
-        val extractedVideo = if (presetSample == null && validation.platform in setOf(PlatformType.FACEBOOK, PlatformType.YOUTUBE)) {
-            try {
-                VideoExtractorService.extract(validation.cleanUrl)
-            } catch (error: Exception) {
-                val message = error.message ?: "تعذر استخراج الفيديو من الرابط"
-                val failedProject = VideoProject(
-                    id = id,
-                    title = validation.titleSuggestion,
-                    sourceUrl = validation.cleanUrl,
-                    platform = validation.platform,
-                    durationSeconds = 0,
-                    currentStage = PipelineStage.ERROR,
-                    progressPercent = 0,
-                    statusMessage = message,
-                    errorMessage = message
-                )
-                _currentProject.value = failedProject
-                onStageChanged(PipelineStage.ERROR, 0, message)
-                return failedProject
-            }
-        } else null
-
-        val videoTitle = extractedVideo?.title ?: presetSample?.title ?: validation.titleSuggestion
+        val videoTitle = validation.titleSuggestion.ifBlank { "فيديو مستورد" }
         val localDuration = if (isLocalFile && sourceUri != null) {
             runCatching {
                 MediaMetadataRetriever().let { retriever ->
                     try {
                         retriever.setDataSource(context, sourceUri)
                         (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-                            ?.div(1000L)?.toInt() ?: 0).coerceAtLeast(1)
+                            ?.div(1000L)?.toInt() ?: 0).coerceAtLeast(0)
                     } finally {
                         retriever.release()
                     }
                 }
             }.getOrDefault(0)
         } else 0
-        val estimatedDuration = extractedVideo?.durationSeconds
-            ?: presetSample?.durationSeconds
-            ?: localDuration.takeIf { it > 0 }
-            ?: 28
-        val mediaUrl = extractedVideo?.mediaUrl ?: validation.cleanUrl
-        val calculatedSizeMb = ((estimatedDuration * 0.22).coerceAtLeast(1.8) * 10).toInt() / 10.0
+
+        if (localDuration <= 0) {
+            val message = "تعذر قراءة مدة الفيديو أو أن الملف غير مدعوم. لم نستخدم مدة تقديرية بدلاً من بيانات الملف."
+            val failedProject = VideoProject(
+                id = id,
+                title = videoTitle,
+                sourceUrl = inputUrl,
+                platform = PlatformType.LOCAL_FILE,
+                durationSeconds = 0,
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 0,
+                statusMessage = message,
+                errorMessage = message
+            )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 0, message)
+            return failedProject
+        }
+
+        val estimatedDuration = localDuration
+        val mediaUrl = validation.cleanUrl
+        val calculatedSizeMb = 0.0
 
         var project = VideoProject(
             id = id,
@@ -144,7 +138,7 @@ class VideoProcessingPipeline(private val context: Context) {
                 url = mediaUrl,
                 videoTitle = videoTitle,
                 durationSeconds = estimatedDuration,
-                requestHeaders = extractedVideo?.httpHeaders.orEmpty()
+                requestHeaders = emptyMap()
             ) { progress ->
                 val pipelineProgress = 18 + (progress.percent * 22 / 100)
                 val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
