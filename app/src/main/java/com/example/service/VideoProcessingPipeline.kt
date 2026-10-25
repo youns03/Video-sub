@@ -134,10 +134,8 @@ class VideoProcessingPipeline(private val context: Context) {
         val downloadedFile: File = try {
             VideoDownloaderService.importVideoToAppStorage(
                 context = context,
-                url = mediaUrl,
-                videoTitle = videoTitle,
-                durationSeconds = estimatedDuration,
-                requestHeaders = emptyMap()
+                source = sourceUri ?: error("ملف الفيديو المختار غير صالح."),
+                videoTitle = videoTitle
             ) { progress ->
                 val pipelineProgress = 18 + (progress.percent * 22 / 100)
                 val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
@@ -200,7 +198,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.EXTRACTING_SPEECH_FR,
             progressPercent = 48,
-            statusMessage = "جاري استخراج الصوت وتفريغ الكلام الفرنسي بمعايير Netflix و Amazon..."
+            statusMessage = "تم استيراد الفيديو. يجري التحقق من توفر محرك تفريغ صوتي حقيقي..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
@@ -319,7 +317,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.BUILDING_SRT,
             progressPercent = 95,
-            statusMessage = "إنشاء ملف SRT وتجهيز أزرار تحميل الفيديو (360p) وملف الترجمة وخيار الدمج..."
+            statusMessage = "التحقق من النصوص والتوقيتات قبل تصدير ملف SRT..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.BUILDING_SRT, 95, project.statusMessage)
