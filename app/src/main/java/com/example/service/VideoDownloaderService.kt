@@ -167,7 +167,7 @@ object VideoDownloaderService {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "SubVid_${sanitizedTitle}_$timestamp.$extension"
         val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-            ?: "application/octet-stream"
+            ?.takeIf { it.startsWith("video/") } ?: return null
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
