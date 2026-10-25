@@ -303,7 +303,7 @@ fun PipelineScreen(
                             }
 
                             Text(
-                                text = "تم تحميل الفيديو بدقة 360p (${currentProject.videoFileSizeMb} MB) وتفريغ وترجمة الحوارات بأختام زمنية متطابقة.",
+                                text = "تم تجهيز ملف الفيديو. لا يُعد التفريغ والترجمة مكتملين إلا بعد تشغيل المحركات الحقيقية والتحقق من النتائج.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -321,7 +321,7 @@ fun PipelineScreen(
                             ) {
                                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("تحميل ملف الترجمة العربية (SRT)", fontWeight = FontWeight.Bold)
+                                Text("حفظ ملف الترجمة العربية (SRT)", fontWeight = FontWeight.Bold)
                             }
 
                             // 2. Download 360p MP4 Video Button (Blue)
@@ -336,7 +336,7 @@ fun PipelineScreen(
                             ) {
                                 Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("تحميل فيديو MP4 بدقة 360p (${currentProject.videoFileSizeMb} MB)", fontWeight = FontWeight.Bold)
+                                Text("حفظ الفيديو الأصلي (${currentProject.videoQuality})", fontWeight = FontWeight.Bold)
                             }
 
                             // 3. Merge Hardsub / Burn-in Video Button (Amber)
@@ -352,7 +352,7 @@ fun PipelineScreen(
                                 Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AmberWarning, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isMergingHardsub) "جاري دمج الترجمة..." else "معاينة ودمج الترجمة داخل الفيديو مباشرة (Hardsub)",
+                                    text = if (isMergingHardsub) "جاري دمج الترجمة..." else "حرق الترجمة داخل الفيديو (غير متاح حالياً)",
                                     fontWeight = FontWeight.Bold
                                 )
                             }
