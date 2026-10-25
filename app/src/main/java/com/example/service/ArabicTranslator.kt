@@ -69,37 +69,38 @@ object ArabicTranslator {
         val trimmed = frenchText.trim()
         if (trimmed.isEmpty()) return@withContext ""
 
-        // 1. Try public free translation API (MyMemory)
+        val encodedQuery = URLEncoder.encode(trimmed, "UTF-8")
+        val url = "https://api.mymemory.translated.net/get?q=$encodedQuery&langpair=fr|ar"
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "SubVidApp/1.0")
+            .build()
+
         try {
-            val encodedQuery = URLEncoder.encode(trimmed, "UTF-8")
-            val url = "https://api.mymemory.translated.net/get?q=$encodedQuery&langpair=fr|ar"
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "SubVidApp/1.0")
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                if (!responseBody.isNullOrBlank()) {
-                    val json = JSONObject(responseBody)
-                    val responseData = json.optJSONObject("responseData")
-                    val translatedText = responseData?.optString("translatedText")
-                    if (!translatedText.isNullOrBlank() &&
-                        !translatedText.contains("MYMEMORY WARNING") &&
-                        !translatedText.equals(trimmed, ignoreCase = true)
-                    ) {
-                        return@withContext formatArabicSubtitleText(translatedText)
-                    }
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw java.io.IOException("خدمة الترجمة أعادت HTTP ${response.code}.")
                 }
-            }
-        } catch (e: Exception) {
-            // Network fallback
-        }
+                val responseBody = response.body?.string()
+                    ?: throw java.io.IOException("خدمة الترجمة أعادت استجابة فارغة.")
+                val json = JSONObject(responseBody)
+                val responseStatus = json.optInt("responseStatus", 200)
+                val responseData = json.optJSONObject("responseData")
+                val translatedText = responseData?.optString("translatedText").orEmpty().trim()
 
-        // 2. Intelligent Contextual Fallback for offline or rate-limited environments
-        val fallbackTranslation = translateOfflineContextual(trimmed)
-        return@withContext formatArabicSubtitleText(fallbackTranslation)
+                if (responseStatus != 200 ||
+                    translatedText.isBlank() ||
+                    translatedText.contains("MYMEMORY WARNING", ignoreCase = true) ||
+                    translatedText.equals(trimmed, ignoreCase = true)
+                ) {
+                    throw java.io.IOException("لم تُرجع خدمة الترجمة نتيجة عربية موثوقة؛ لم نستخدم ترجمة تخمينية.")
+                }
+                formatArabicSubtitleText(translatedText)
+            }
+        } catch (error: Exception) {
+            if (error is java.io.IOException) throw error
+            throw java.io.IOException("تعذر الاتصال بخدمة الترجمة. تحقق من الإنترنت ثم أعد المحاولة.", error)
+        }
     }
 
     private fun translateOfflineContextual(french: String): String {
