@@ -213,15 +213,18 @@ object VideoDownloaderService {
      * Opens Android Sharesheet to send or open the original imported video.
      */
     fun shareVideo(context: Context, videoFile: File, title: String) {
+        require(videoFile.isFile && videoFile.length() > 0L) { "ملف الفيديو غير موجود أو فارغ." }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", videoFile)
+        val mimeType = android.webkit.MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(videoFile.extension.lowercase(Locale.ROOT)) ?: "video/*"
 
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "video/mp4"
+            type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "فيديو MP4 بدقة 360p: $title")
-            putExtra(Intent.EXTRA_TEXT, "تم تحميل هذا الفيديو بدقة 360p عبر تطبيق مترجم الفيديوهات")
+            putExtra(Intent.EXTRA_SUBJECT, "فيديو: $title")
+            putExtra(Intent.EXTRA_TEXT, "فيديو مستورد من الهاتف عبر تطبيق SubVid.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة الفيديو بدقة 360p"))
+        context.startActivity(Intent.createChooser(intent, "مشاركة الفيديو الأصلي"))
     }
 }
