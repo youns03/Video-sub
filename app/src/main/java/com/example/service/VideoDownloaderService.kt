@@ -48,6 +48,16 @@ object VideoDownloaderService {
             }.getOrNull()
         } else source.lastPathSegment
 
+        val sourceSizeBytes = if (scheme == "file") {
+            File(source.path ?: "").takeIf { it.isFile }?.length() ?: 0L
+        } else {
+            runCatching {
+                context.contentResolver.query(source, arrayOf(OpenableColumns.SIZE), null, null, null)
+                    ?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else 0L
+                    } ?: 0L
+            }.getOrDefault(0L)
+        }
         val extensionFromName = displayName?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
         val extension = extensionFromName
             ?.takeIf { it.matches(Regex("[a-z0-9]{2,5}")) }
@@ -93,9 +103,11 @@ object VideoDownloaderService {
                         copied += read
                         onProgress(
                             DownloadProgress(
-                                percent = 0,
+                                percent = if (sourceSizeBytes > 0L) {
+                                    ((copied * 100L) / sourceSizeBytes).toInt().coerceIn(0, 99)
+                                } else 0,
                                 downloadedMb = copied / 1_000_000.0,
-                                totalMb = 0.0,
+                                totalMb = sourceSizeBytes / 1_000_000.0,
                                 speedMbps = 0.0
                             )
                         )
