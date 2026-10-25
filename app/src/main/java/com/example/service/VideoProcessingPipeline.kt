@@ -104,7 +104,6 @@ class VideoProcessingPipeline(private val context: Context) {
         }
 
         val estimatedDuration = localDuration
-        val mediaUrl = validation.cleanUrl
 
         var project = VideoProject(
             id = id,
@@ -204,17 +203,12 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
 
         val rawFrenchSegments: List<SubtitleSegment> = try {
-            if (presetSample != null) {
-                delay(500)
-                presetSample.sampleSegments.map { it.copy(arabicText = "") }
-            } else {
-                FrenchSTTEngine.transcribeAudioWithStudioStandards(estimatedDuration) { p, text ->
-                    val calcProgress = 48 + (p * 22 / 100)
-                    _currentProject.value = _currentProject.value?.copy(
-                        progressPercent = calcProgress,
-                        statusMessage = "تفريغ الصوت: \"${text.take(35)}...\""
-                    )
-                }
+            FrenchSTTEngine.transcribeAudioWithStudioStandards(estimatedDuration) { p, text ->
+                val calcProgress = 48 + (p * 22 / 100)
+                _currentProject.value = _currentProject.value?.copy(
+                    progressPercent = calcProgress,
+                    statusMessage = "تفريغ الصوت: \"${text.take(35)}...\""
+                )
             }
         } catch (error: Exception) {
             val message = error.message ?: "تعذر تفريغ الصوت الفرنسي."
@@ -266,42 +260,35 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.TRANSLATING_AR, 74, project.statusMessage)
 
         val translatedSegments = mutableListOf<SubtitleSegment>()
-        if (presetSample != null) {
-            translatedSegments.addAll(presetSample.sampleSegments)
-            delay(500)
-        } else {
-            for ((index, segment) in rawFrenchSegments.withIndex()) {
-                val arabic = try {
-                    ArabicTranslator.translateFrenchToArabic(segment.frenchText)
-                } catch (error: Exception) {
-                    val message = error.message ?: "تعذرت ترجمة المقطع ${index + 1}."
-                    val failedProject = project.copy(
-                        segments = translatedSegments.toList(),
-                        currentStage = PipelineStage.ERROR,
-                        progressPercent = 74,
-                        statusMessage = message,
-                        errorMessage = message
-                    )
-                    _currentProject.value = failedProject
-                    onStageChanged(PipelineStage.ERROR, 74, message)
-                    return failedProject
-                }
-                // Strict preservation of the exact start and end times!
-                translatedSegments.add(
-                    segment.copy(
-                        arabicText = arabic,
-                        startTimeMs = segment.startTimeMs,
-                        endTimeMs = segment.endTimeMs
-                    )
+        for ((index, segment) in rawFrenchSegments.withIndex()) {
+            val arabic = try {
+                ArabicTranslator.translateFrenchToArabic(segment.frenchText)
+            } catch (error: Exception) {
+                val message = error.message ?: "تعذرت ترجمة المقطع ${index + 1}."
+                val failedProject = project.copy(
+                    segments = translatedSegments.toList(),
+                    currentStage = PipelineStage.ERROR,
+                    progressPercent = 74,
+                    statusMessage = message,
+                    errorMessage = message
                 )
-                val transProgress = 74 + ((index + 1) * 16 / rawFrenchSegments.size)
-                project = project.copy(
-                    progressPercent = transProgress,
-                    statusMessage = "ترجمة المقطع ${index + 1} من ${rawFrenchSegments.size} مع مطابقة التوقيت..."
-                )
-                _currentProject.value = project
-                delay(200)
+                _currentProject.value = failedProject
+                onStageChanged(PipelineStage.ERROR, 74, message)
+                return failedProject
             }
+            translatedSegments.add(
+                segment.copy(
+                    arabicText = arabic,
+                    startTimeMs = segment.startTimeMs,
+                    endTimeMs = segment.endTimeMs
+                )
+            )
+            val transProgress = 74 + ((index + 1) * 16 / rawFrenchSegments.size)
+            project = project.copy(
+                progressPercent = transProgress,
+                statusMessage = "ترجمة المقطع ${index + 1} من ${rawFrenchSegments.size}؛ التوقيت الأصلي محفوظ."
+            )
+            _currentProject.value = project
         }
 
         project = project.copy(
