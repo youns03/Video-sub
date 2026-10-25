@@ -227,8 +227,11 @@ fun HistoryScreen(
 
                                 IconButton(
                                     onClick = {
-                                        val dummyFile = java.io.File(context.cacheDir, "history_video_${project.id}.mp4").apply {
-                                            if (!exists()) writeText("MP4_360P_DATA")
+                                        val dummyFile = java.io.File(context.cacheDir, "history_video_${project.id}.mp4")
+                                        if (!dummyFile.exists()) {
+                                            context.assets.open("sample_video.mp4").use { input ->
+                                                dummyFile.outputStream().use { output -> input.copyTo(output) }
+                                            }
                                         }
                                         com.example.service.VideoDownloaderService.saveVideoToUserGallery(context, dummyFile, project.title)
                                         Toast.makeText(context, "تم حفظ فيديو 360p (${project.videoFileSizeMb}MB) في المعرض والأفلام", Toast.LENGTH_SHORT).show()

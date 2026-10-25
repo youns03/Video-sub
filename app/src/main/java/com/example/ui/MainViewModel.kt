@@ -190,11 +190,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val videoFile = if (localPath != null && File(localPath).exists()) {
             File(localPath)
         } else {
-            // Generate valid target file
+            // Use the bundled valid MP4 for offline/demo projects.
             val exportDir = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "SubVid")
             if (!exportDir.exists()) exportDir.mkdirs()
             val f = File(exportDir, "Video_360p_${current.title.take(15)}.mp4")
-            if (!f.exists()) f.writeText("MP4_360P_VIDEO_DATA")
+            copyBundledVideoIfNeeded(f)
             f
         }
 
@@ -211,9 +211,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val videoFile = if (localPath != null && File(localPath).exists()) {
                 File(localPath)
             } else {
-                File(context.cacheDir, "temp_video.mp4").apply {
-                    if (!exists()) writeText("MP4_360P_DATA")
-                }
+                File(context.cacheDir, "temp_video.mp4").also(::copyBundledVideoIfNeeded)
             }
 
             val mergedFile = VideoSubtitleMerger.mergeSubtitlesIntoVideo(
@@ -239,9 +237,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val videoFile = if (localPath != null && File(localPath).exists()) {
             File(localPath)
         } else {
-            File(context.cacheDir, "sample_video.mp4").apply {
-                if (!exists()) writeText("SAMPLE_360P_DATA")
-            }
+            File(context.cacheDir, "sample_video.mp4").also(::copyBundledVideoIfNeeded)
         }
         VideoDownloaderService.shareVideo(context, videoFile, current.title)
     }
@@ -268,6 +264,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             _statusNotice.value = "تم حذف المشروع."
+        }
+    }
+
+    private fun copyBundledVideoIfNeeded(target: File) {
+        if (target.exists() && target.length() > 0L) return
+        target.parentFile?.mkdirs()
+        context.assets.open("sample_video.mp4").use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
         }
     }
 

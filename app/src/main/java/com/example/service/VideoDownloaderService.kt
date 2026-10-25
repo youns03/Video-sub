@@ -70,12 +70,10 @@ object VideoDownloaderService {
             )
         }
 
-        // Write sample valid MP4 header/wrapper bytes so file exists and has size
+        // Keep the demo pipeline usable offline with a real MP4 asset.
         if (!videoFile.exists()) {
-            FileOutputStream(videoFile).use { out ->
-                val dummyPayload = "MP4_360P_VIDEO_STREAM_${url}_${System.currentTimeMillis()}".toByteArray()
-                // Write placeholder header
-                out.write(dummyPayload)
+            context.assets.open("sample_video.mp4").use { input ->
+                FileOutputStream(videoFile).use { output -> input.copyTo(output) }
             }
         }
 
@@ -113,7 +111,7 @@ object VideoDownloaderService {
             val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
             val targetFile = File(publicDir, fileName)
             sourceFile.copyTo(targetFile, overwrite = true)
-            return Uri.fromFile(targetFile)
+            return FileProvider.getUriForFile(context, "${context.packageName}.provider", targetFile)
         }
         return null
     }
@@ -122,11 +120,7 @@ object VideoDownloaderService {
      * Opens Android Sharesheet to send or open the 360p MP4 video.
      */
     fun shareVideo(context: Context, videoFile: File, title: String) {
-        val uri: Uri = try {
-            FileProvider.getUriForFile(context, "${context.packageName}.provider", videoFile)
-        } catch (e: Exception) {
-            Uri.fromFile(videoFile)
-        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", videoFile)
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "video/mp4"

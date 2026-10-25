@@ -73,11 +73,7 @@ object SrtGenerator {
      * Shares SRT file or text to external apps (WhatsApp, Telegram, Drive, Gmail, etc.)
      */
     fun shareSrtFile(context: Context, file: File, title: String) {
-        val uri: Uri = try {
-            FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-        } catch (e: Exception) {
-            Uri.fromFile(file)
-        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
