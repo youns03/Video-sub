@@ -24,7 +24,7 @@ object VideoExtractorService {
 
     suspend fun extract(pageUrl: String): ExtractedVideo = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank()) {
-            throw IOException("لم يتم إعداد خادم استخراج Facebook وYouTube في نسخة التطبيق. يجب نشر Backend ثم إعادة بناء APK.")
+            throw IOException("استخراج روابط Facebook وYouTube غير متاح في هذه النسخة دون خادم خارجي. يمكنك تنزيل رابط فيديو مباشر أو اختيار ملف محلي.")
         }
 
         val endpoint = try {
