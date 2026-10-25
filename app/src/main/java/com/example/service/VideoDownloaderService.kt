@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,9 +32,7 @@ object VideoDownloaderService {
     const val TARGET_RESOLUTION = "360p (SD - 640x360)"
     const val TARGET_CODEC = "MP4 (H.264 / AAC)"
 
-    /**
-     * Downloads or prepares a 360p MP4 video file on the device.
-     */
+    /** Downloads a local file or a direct media URL; never substitutes demo content. */
     suspend fun downloadVideo360p(
         context: Context,
         url: String,
@@ -40,8 +40,6 @@ object VideoDownloaderService {
         durationSeconds: Int,
         onProgress: suspend (DownloadProgress) -> Unit
     ): File = withContext(Dispatchers.IO) {
-        // Calculate realistic file size for 360p (approx 0.22 MB per second for 360p H.264)
-        val calculatedSizeMb = ((durationSeconds * 0.22).coerceAtLeast(1.8) * 10).toInt() / 10.0
         val sanitizedTitle = videoTitle.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25)
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "Video_360p_${sanitizedTitle}_$timestamp.mp4"
@@ -53,31 +51,64 @@ object VideoDownloaderService {
 
         val videoFile = File(dir, fileName)
 
-        // Simulate streaming/downloading blocks with progress
-        val steps = 8
-        for (i in 1..steps) {
-            delay(150)
-            val currentPercent = (i * 100) / steps
-            val downloadedMb = ((calculatedSizeMb * currentPercent) / 100.0 * 10).toInt() / 10.0
-            val speedMbps = 2.4 + (i % 3) * 0.4
-            onProgress(
-                DownloadProgress(
-                    percent = currentPercent,
-                    downloadedMb = downloadedMb,
-                    totalMb = calculatedSizeMb,
-                    speedMbps = speedMbps
-                )
-            )
+        val sourceUri = Uri.parse(url)
+        when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
+            "content", "file" -> {
+                context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                    FileOutputStream(videoFile).use { output -> input.copyTo(output) }
+                } ?: error("تعذر فتح الملف المحلي المختار")
+                onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
+            }
+            "http", "https" -> downloadDirectMediaUrl(url, videoFile, onProgress)
+            else -> error("مصدر الفيديو غير مدعوم")
         }
 
-        // Keep the demo pipeline usable offline with a real MP4 asset.
-        if (!videoFile.exists()) {
-            context.assets.open("sample_video.mp4").use { input ->
-                FileOutputStream(videoFile).use { output -> input.copyTo(output) }
-            }
+        if (!videoFile.exists() || videoFile.length() == 0L) {
+            error("لم يتم تنزيل أي بيانات من الرابط")
         }
 
         return@withContext videoFile
+    }
+
+    private suspend fun downloadDirectMediaUrl(
+        sourceUrl: String,
+        destination: File,
+        onProgress: suspend (DownloadProgress) -> Unit
+    ) {
+        val connection = (URL(sourceUrl).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 60_000
+            instanceFollowRedirects = true
+            requestMethod = "GET"
+            setRequestProperty("User-Agent", "SubVid/1.0 Android")
+        }
+        try {
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) error("تعذر تنزيل الفيديو: HTTP $responseCode")
+            val contentType = connection.contentType?.lowercase(Locale.ROOT).orEmpty()
+            if (contentType.contains("text/html") || contentType.contains("application/json")) {
+                error("هذا الرابط صفحة ويب وليس رابط ملف فيديو مباشر. روابط YouTube/Facebook تحتاج خدمة استخراج مخصصة.")
+            }
+            val totalBytes = connection.contentLengthLong
+            var downloadedBytes = 0L
+            val startedAt = System.currentTimeMillis()
+            connection.inputStream.use { input ->
+                FileOutputStream(destination).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        downloadedBytes += read
+                        val percent = if (totalBytes > 0) ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
+                        val elapsedSeconds = ((System.currentTimeMillis() - startedAt).coerceAtLeast(1L)) / 1000.0
+                        val speedMbps = downloadedBytes / 1_000_000.0 / elapsedSeconds
+                        onProgress(DownloadProgress(percent, downloadedBytes / 1_000_000.0, if (totalBytes > 0) totalBytes / 1_000_000.0 else 0.0, speedMbps))
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
     }
 
     /**

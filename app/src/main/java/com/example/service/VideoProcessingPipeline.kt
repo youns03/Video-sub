@@ -84,19 +84,32 @@ class VideoProcessingPipeline(private val context: Context) {
         _currentProject.value = project
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 18, project.statusMessage)
 
-        var downloadedFile: File? = null
-        downloadedFile = VideoDownloaderService.downloadVideo360p(
-            context = context,
-            url = validation.cleanUrl,
-            videoTitle = videoTitle,
-            durationSeconds = estimatedDuration
-        ) { progress ->
-            val pipelineProgress = 18 + (progress.percent * 22 / 100)
-            val updatedMsg = "تحميل 360p: ${progress.downloadedMb}MB من ${progress.totalMb}MB (${progress.percent}%) بسرعة ${progress.speedMbps} MB/s"
-            _currentProject.value = _currentProject.value?.copy(
-                progressPercent = pipelineProgress,
-                statusMessage = updatedMsg
+        val downloadedFile: File = try {
+            VideoDownloaderService.downloadVideo360p(
+                context = context,
+                url = validation.cleanUrl,
+                videoTitle = videoTitle,
+                durationSeconds = estimatedDuration
+            ) { progress ->
+                val pipelineProgress = 18 + (progress.percent * 22 / 100)
+                val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
+                val updatedMsg = "تحميل فعلي: ${progress.downloadedMb}MB$total (${progress.percent}%)"
+                _currentProject.value = _currentProject.value?.copy(
+                    progressPercent = pipelineProgress,
+                    statusMessage = updatedMsg
+                )
+            }
+        } catch (error: Exception) {
+            val message = error.message ?: "تعذر تنزيل الفيديو من الرابط"
+            val failedProject = project.copy(
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 18,
+                statusMessage = message,
+                errorMessage = message
             )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 18, message)
+            return failedProject
         }
 
         project = project.copy(
