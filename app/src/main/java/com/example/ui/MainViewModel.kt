@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
@@ -95,7 +96,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun retryPipeline() {
         val current = currentProject.value ?: return
-        startPipeline(current.sourceUrl, lastUsedPreset)
+        val retrySource = current.localVideoPath?.let { path -> Uri.fromFile(File(path)).toString() } ?: current.sourceUrl
+        startPipeline(retrySource, lastUsedPreset)
     }
 
     fun loadProjectIntoEditor(project: VideoProject) {
