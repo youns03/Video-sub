@@ -30,11 +30,10 @@ data class DownloadProgress(
 
 object VideoDownloaderService {
 
-    const val TARGET_RESOLUTION = "Original source (no transcoding)"
-    const val TARGET_CODEC = "MP4 (H.264 / AAC)"
+    const val SOURCE_QUALITY_LABEL = "Original source (no transcoding)"
 
     /** Downloads a local file or a direct media URL; never substitutes demo content. */
-    suspend fun downloadVideo360p(
+    suspend fun importVideoToAppStorage(
         context: Context,
         url: String,
         videoTitle: String,
@@ -156,7 +155,7 @@ object VideoDownloaderService {
     }
 
     /**
-     * Exports the downloaded 360p MP4 file to public user storage (Downloads or Movies)
+     * Exports the imported original video to public user storage (Movies/SubVid)
      */
     fun saveVideoToUserGallery(context: Context, sourceFile: File, title: String): Uri? {
         if (!sourceFile.isFile || sourceFile.length() <= 0L) return null
