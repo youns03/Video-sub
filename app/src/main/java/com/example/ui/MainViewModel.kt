@@ -140,16 +140,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun retranslateAllSegments() {
         val current = currentProject.value ?: return
+        if (current.segments.isEmpty()) {
+            _statusNotice.value = "لا توجد مقاطع لإعادة ترجمتها."
+            return
+        }
         viewModelScope.launch {
-            _statusNotice.value = "جاري إعادة ترجمة كافة المقاطع..."
-            val updatedSegments = current.segments.map { seg ->
-                val newAr = ArabicTranslator.translateFrenchToArabic(seg.frenchText)
-                seg.copy(arabicText = newAr)
+            _statusNotice.value = "جاري إعادة ترجمة المقاطع..."
+            try {
+                val updatedSegments = current.segments.map { seg ->
+                    val newAr = ArabicTranslator.translateFrenchToArabic(seg.frenchText)
+                    if (newAr.isBlank()) throw IllegalStateException("أعادت خدمة الترجمة نصاً فارغاً.")
+                    seg.copy(arabicText = newAr)
+                }
+                val updatedProject = current.copy(segments = updatedSegments)
+                pipeline.updateProject(updatedProject)
+                saveProjectToDb(updatedProject)
+                _statusNotice.value = "تم تحديث الترجمة."
+            } catch (error: Exception) {
+                _statusNotice.value = error.message ?: "تعذرت إعادة الترجمة؛ لم نُحفظ نتيجة جزئية."
             }
-            val updatedProject = current.copy(segments = updatedSegments)
-            pipeline.updateProject(updatedProject)
-            saveProjectToDb(updatedProject)
-            _statusNotice.value = "تم تحديث الترجمة بالكامل!"
         }
     }
 
@@ -217,6 +226,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         VideoDownloaderService.shareVideo(context, videoFile, current.title)
+    }
+
+    fun shareSrtFile() {
+        val current = currentProject.value ?: return
+        if (current.segments.isEmpty() || current.segments.any { it.arabicText.isBlank() }) {
+            _statusNotice.value = "لا يمكن مشاركة SRT: لا توجد ترجمة عربية مكتملة وصالحة."
+            return
+        }
+        try {
+            val file = SrtGenerator.saveSrtToFile(context, current.srtContent, current.title)
+            SrtGenerator.shareSrtFile(context, file, current.title)
+        } catch (error: Exception) {
+            _statusNotice.value = error.message ?: "تعذرت مشاركة ملف الترجمة."
+        }
     }
 
     fun deleteProject(projectId: String) {
