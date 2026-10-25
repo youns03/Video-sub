@@ -62,30 +62,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var playbackJob: Job? = null
     private var lastUsedPreset: PresetSample? = null
 
-    init {
-        // Pre-populate with first preset if database is completely empty
-        viewModelScope.launch {
-            if (projectDao.getProjectCount() == 0) {
-                val sample = PresetSamples.list.first()
-                val sampleProject = VideoProject(
-                    id = UUID.randomUUID().toString(),
-                    title = sample.title,
-                    sourceUrl = sample.url,
-                    platform = sample.platform,
-                    durationSeconds = sample.durationSeconds,
-                    currentStage = PipelineStage.COMPLETED,
-                    progressPercent = 100,
-                    statusMessage = "مشروع تجريبي جاهز للتحميل والمعاينة والتعديل",
-                    segments = sample.sampleSegments,
-                    videoQuality = "360p (SD - 640x360)",
-                    videoFileSizeMb = 6.2
-                )
-                projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(sampleProject))
-                pipeline.updateProject(sampleProject)
-            }
-        }
-    }
-
     fun setInputUrl(url: String) {
         _inputUrl.value = url
     }
@@ -262,13 +238,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun copyBundledVideoIfNeeded(target: File) {
-        if (target.exists() && target.length() > 0L) return
-        target.parentFile?.mkdirs()
-        context.assets.open("sample_video.mp4").use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
-        }
-    }
 
     private fun saveProjectToDb(project: VideoProject) {
         viewModelScope.launch {
