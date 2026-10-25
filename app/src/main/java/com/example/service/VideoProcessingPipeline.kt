@@ -115,7 +115,8 @@ class VideoProcessingPipeline(private val context: Context) {
             durationSeconds = estimatedDuration,
             currentStage = PipelineStage.VALIDATING_URL,
             progressPercent = 10,
-            videoFileSizeMb = calculatedSizeMb,
+            videoFileSizeMb = if (isLocalFile) 0.0 else calculatedSizeMb,
+            videoQuality = if (isLocalFile) "المصدر الأصلي (لم يُحوّل)" else "360p (SD - 640x360)",
             statusMessage = if (isLocalFile) "جاري تجهيز الفيديو المستورد من الهاتف..." else "جاري التحقق من إمكانية الوصول إلى الفيديو..."
         )
         _currentProject.value = project
@@ -182,17 +183,48 @@ class VideoProcessingPipeline(private val context: Context) {
         _currentProject.value = project
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
 
-        val rawFrenchSegments: List<SubtitleSegment> = if (presetSample != null) {
-            delay(500)
-            presetSample.sampleSegments.map { it.copy(arabicText = "") }
-        } else {
-            FrenchSTTEngine.transcribeAudioWithStudioStandards(estimatedDuration) { p, text ->
-                val calcProgress = 48 + (p * 22 / 100)
-                _currentProject.value = _currentProject.value?.copy(
-                    progressPercent = calcProgress,
-                    statusMessage = "تفريغ استوديو: \"${text.take(35)}...\""
-                )
+        val rawFrenchSegments: List<SubtitleSegment> = try {
+            if (presetSample != null) {
+                delay(500)
+                presetSample.sampleSegments.map { it.copy(arabicText = "") }
+            } else {
+                FrenchSTTEngine.transcribeAudioWithStudioStandards(estimatedDuration) { p, text ->
+                    val calcProgress = 48 + (p * 22 / 100)
+                    _currentProject.value = _currentProject.value?.copy(
+                        progressPercent = calcProgress,
+                        statusMessage = "تفريغ الصوت: \"${text.take(35)}...\""
+                    )
+                }
             }
+        } catch (error: Exception) {
+            val message = error.message ?: "تعذر تفريغ الصوت الفرنسي."
+            val failedProject = project.copy(
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 48,
+                statusMessage = message,
+                errorMessage = message
+            )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 48, message)
+            return failedProject
+        }
+
+        val invalidSegment = rawFrenchSegments.firstOrNull {
+            it.startTimeMs < 0L || it.endTimeMs <= it.startTimeMs ||
+                it.endTimeMs > estimatedDuration * 1000L + 1000L ||
+                it.frenchText.isBlank()
+        }
+        if (rawFrenchSegments.isEmpty() || invalidSegment != null) {
+            val message = "نتيجة التفريغ فارغة أو تحتوي توقيتات غير صالحة؛ أوقفنا المعالجة لتجنب ملف ترجمة مضلل."
+            val failedProject = project.copy(
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 48,
+                statusMessage = message,
+                errorMessage = message
+            )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 48, message)
+            return failedProject
         }
 
         project = project.copy(
