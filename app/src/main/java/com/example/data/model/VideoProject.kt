@@ -13,12 +13,12 @@ enum class PipelineStage(
     val frenchTitle: String,
     val description: String
 ) {
-    IDLE(0, "جاهز للبدء", "Prêt", "أدخل رابط الفيديو لبدء التحميل والمعالجة"),
-    VALIDATING_URL(1, "التحقق من الرابط", "Validation de l'URL", "التحقق من الرابط والتأكد من إمكانية الوصول إلى الفيديو"),
-    DOWNLOADING_VIDEO_360P(2, "تحميل الفيديو بدقة 360p", "Téléchargement MP4 360p", "تنزيل ملف الفيديو بالكامل بصيغة MP4 وبدقة 360p لتوفير البيانات والسرعة"),
+    IDLE(0, "جاهز للبدء", "Prêt", "اختر ملف فيديو من الهاتف لبدء المعالجة"),
+    VALIDATING_URL(1, "التحقق من ملف الفيديو", "Vérification du fichier", "قراءة بيانات الفيديو المحلي والتأكد من إمكانية فتحه"),
+    DOWNLOADING_VIDEO_360P(2, "استيراد الفيديو الأصلي", "Importation de la vidéo", "نسخ الملف المحلي كما هو دون تحويل الدقة أو الترميز"),
     EXTRACTING_SPEECH_FR(3, "تفريغ الصوت الفرنسي بدقة Netflix", "Transcription vocale Studio", "تفريغ الصوت إلى سكريبت فرنسي بأختام زمنية ومقاطع متناسقة"),
-    TRANSLATING_AR(4, "الترجمة العربية المتزامنة", "Traduction arabe synchronisée", "ترجمة العبارات إلى العربية الفصيحة مع الحفاظ الدقيق على توقيت البداية والنهاية"),
-    BUILDING_SRT(5, "إنشاء ملف SRT وتجهيز التنزيل", "Génération SRT & Export", "بناء ملف الترجمة القياسي وتجهيز روابط تحميل الفيديو والـ SRT وخيار الدمج"),
+    TRANSLATING_AR(4, "الترجمة العربية", "Traduction arabe", "ترجمة النص الفرنسي آلياً مع الاحتفاظ بتوقيتات المقاطع الأصلية"),
+    BUILDING_SRT(5, "التحقق وإنشاء SRT", "Validation & génération SRT", "التحقق من النصوص والتوقيتات قبل إنشاء ملف الترجمة"),
     COMPLETED(6, "اكتملت المعالجة بنجاح", "Terminé avec succès", "الفيديو وملف الترجمة جاهزان للتحميل والمعاينة والدمج"),
     ERROR(-1, "حدث خطأ في المعالجة", "Erreur", "تعذرت معالجة الفيديو في إحدى المراحل. يمكنك إعادة المحاولة")
 }
@@ -35,12 +35,12 @@ data class VideoProject(
     val statusMessage: String = "",
     val segments: List<SubtitleSegment> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val videoQuality: String = "360p (SD - 640x360)",
-    val videoFileSizeMb: Double = 6.4,
+    val videoQuality: String = "غير متحقق",
+    val videoFileSizeMb: Double = 0.0,
     val localVideoPath: String? = null,
     val isHardsubMerged: Boolean = false,
-    val audioBitrate: String = "128 kbps (AAC)",
-    val detectedLanguage: String = "Français (fr-FR)",
+    val audioBitrate: String = "غير متحقق",
+    val detectedLanguage: String = "غير متحقق",
     val errorMessage: String? = null
 ) {
     val isCompleted: Boolean
