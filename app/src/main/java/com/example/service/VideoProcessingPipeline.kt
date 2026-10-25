@@ -132,7 +132,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 18, project.statusMessage)
 
         val downloadedFile: File = try {
-            VideoDownloaderService.downloadVideo360p(
+            VideoDownloaderService.importVideoToAppStorage(
                 context = context,
                 url = mediaUrl,
                 videoTitle = videoTitle,
