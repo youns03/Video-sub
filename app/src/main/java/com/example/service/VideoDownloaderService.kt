@@ -68,9 +68,11 @@ object VideoDownloaderService {
         }
         val fileName = "Video_${sanitizedTitle}_$timestamp.$extension"
 
-        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "SubVid")
-        if (!dir.exists()) {
-            dir.mkdirs()
+        val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            ?: error("مساحة تخزين التطبيق غير متاحة حالياً.")
+        val dir = File(moviesDir, "SubVid")
+        if (!dir.exists() && !dir.mkdirs()) {
+            error("تعذر إنشاء مجلد الفيديوهات داخل مساحة التطبيق.")
         }
 
         val videoFile = File(dir, fileName)
