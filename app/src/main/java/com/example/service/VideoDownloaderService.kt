@@ -10,13 +10,10 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,39 +29,39 @@ object VideoDownloaderService {
 
     const val SOURCE_QUALITY_LABEL = "Original source (no transcoding)"
 
-    /** Downloads a local file or a direct media URL; never substitutes demo content. */
+    /** Copies only a user-selected local video URI into app-private storage. */
     suspend fun importVideoToAppStorage(
         context: Context,
-        url: String,
+        source: Uri,
         videoTitle: String,
-        durationSeconds: Int,
-        requestHeaders: Map<String, String> = emptyMap(),
         onProgress: suspend (DownloadProgress) -> Unit
     ): File = withContext(Dispatchers.IO) {
-        val sanitizedTitle = videoTitle.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25)
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val sourceUri = Uri.parse(url)
-        val extension = when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
-            "content", "file" -> {
-                val displayName = if (sourceUri.scheme.equals("content", true)) {
-                    runCatching {
-                        context.contentResolver.query(sourceUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-                    }.getOrNull()
-                } else sourceUri.lastPathSegment
-                val fromName = displayName?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
-                if (!fromName.isNullOrBlank() && fromName.matches(Regex("[a-z0-9]{2,5}"))) fromName
-                else when (context.contentResolver.getType(sourceUri)?.lowercase(Locale.ROOT)) {
-                    "video/mp4" -> "mp4"
-                    "video/webm" -> "webm"
-                    "video/3gpp" -> "3gp"
-                    "video/quicktime" -> "mov"
-                    "video/x-matroska" -> "mkv"
-                    else -> "video"
-                }
-            }
-            else -> "mp4"
+        val scheme = source.scheme?.lowercase(Locale.ROOT)
+        require(scheme == "content" || scheme == "file") {
+            "اختر ملف فيديو من الهاتف؛ لا تُقبل الروابط في هذه النسخة."
         }
+
+        val displayName = if (scheme == "content") {
+            runCatching {
+                context.contentResolver.query(source, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            }.getOrNull()
+        } else source.lastPathSegment
+
+        val extensionFromName = displayName?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
+        val extension = extensionFromName
+            ?.takeIf { it.matches(Regex("[a-z0-9]{2,5}")) }
+            ?: when (context.contentResolver.getType(source)?.lowercase(Locale.ROOT)) {
+                "video/mp4" -> "mp4"
+                "video/webm" -> "webm"
+                "video/3gpp" -> "3gp"
+                "video/quicktime" -> "mov"
+                "video/x-matroska" -> "mkv"
+                else -> "video"
+            }
+        val sanitizedTitle = videoTitle.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_")
+            .take(25).ifBlank { "video" }
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "Video_${sanitizedTitle}_$timestamp.$extension"
 
         val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
@@ -76,81 +73,57 @@ object VideoDownloaderService {
 
         val videoFile = File(dir, fileName)
         val partialFile = File(dir, "$fileName.part")
-
         try {
-            when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
-                "content" -> {
-                    context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                        FileOutputStream(partialFile).use { output -> input.copyTo(output) }
-                    } ?: error("تعذر فتح الملف المحلي المختار")
-                    onProgress(DownloadProgress(100, partialFile.length() / 1_000_000.0, partialFile.length() / 1_000_000.0, 0.0))
-                }
-                "file" -> {
-                    val sourceFile = File(sourceUri.path ?: error("مسار الملف المحلي غير صالح"))
-                    if (!sourceFile.isFile) error("ملف الفيديو المحلي غير موجود")
-                    sourceFile.inputStream().use { input ->
-                        FileOutputStream(partialFile).use { output -> input.copyTo(output) }
-                    }
-                    onProgress(DownloadProgress(100, partialFile.length() / 1_000_000.0, partialFile.length() / 1_000_000.0, 0.0))
-                }
-                "http", "https" -> downloadDirectMediaUrl(url, partialFile, requestHeaders, onProgress)
-                else -> error("مصدر الفيديو غير مدعوم")
+            val input = if (scheme == "content") {
+                context.contentResolver.openInputStream(source)
+                    ?: error("تعذر فتح ملف الفيديو المختار.")
+            } else {
+                val sourceFile = File(source.path ?: error("مسار الملف المحلي غير صالح."))
+                if (!sourceFile.isFile || !sourceFile.canRead()) error("ملف الفيديو المحلي غير موجود أو غير قابل للقراءة.")
+                sourceFile.inputStream()
             }
-
+            input.use { stream ->
+                FileOutputStream(partialFile).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var copied = 0L
+                    while (true) {
+                        val read = stream.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        copied += read
+                        onProgress(
+                            DownloadProgress(
+                                percent = 0,
+                                downloadedMb = copied / 1_000_000.0,
+                                totalMb = 0.0,
+                                speedMbps = 0.0
+                            )
+                        )
+                    }
+                }
+            }
             if (!partialFile.isFile || partialFile.length() == 0L) {
-                error("لم يتم استيراد أي بيانات من ملف الفيديو")
+                error("لم يتم استيراد أي بيانات من ملف الفيديو.")
+            }
+            if (!videoFile.delete() && videoFile.exists()) {
+                error("تعذر تجهيز ملف الفيديو المستورد.")
             }
             if (!partialFile.renameTo(videoFile)) {
                 error("تعذر اعتماد ملف الفيديو المستورد؛ تحقق من مساحة التخزين المتاحة.")
             }
-            return@withContext videoFile
+            onProgress(
+                DownloadProgress(
+                    percent = 100,
+                    downloadedMb = videoFile.length() / 1_000_000.0,
+                    totalMb = videoFile.length() / 1_000_000.0,
+                    speedMbps = 0.0
+                )
+            )
+            videoFile
         } catch (error: Exception) {
             partialFile.delete()
             videoFile.delete()
             throw error
-        }
-    }
-
-    private suspend fun downloadDirectMediaUrl(
-        sourceUrl: String,
-        destination: File,
-        requestHeaders: Map<String, String>,
-        onProgress: suspend (DownloadProgress) -> Unit
-    ) {
-        val connection = (URL(sourceUrl).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", "SubVid/1.0 Android")
-            requestHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
-        }
-        try {
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) error("تعذر تنزيل الفيديو: HTTP $responseCode")
-            val contentType = connection.contentType?.lowercase(Locale.ROOT).orEmpty()
-            if (contentType.contains("text/html") || contentType.contains("application/json")) {
-                error("هذا الرابط صفحة ويب وليس رابط ملف فيديو مباشر. روابط YouTube/Facebook تحتاج خدمة استخراج مخصصة.")
-            }
-            val totalBytes = connection.contentLengthLong
-            var downloadedBytes = 0L
-            val startedAt = System.currentTimeMillis()
-            connection.inputStream.use { input ->
-                FileOutputStream(destination).use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                        downloadedBytes += read
-                        val percent = if (totalBytes > 0) ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
-                        val elapsedSeconds = ((System.currentTimeMillis() - startedAt).coerceAtLeast(1L)) / 1000.0
-                        val speedMbps = downloadedBytes / 1_000_000.0 / elapsedSeconds
-                        onProgress(DownloadProgress(percent, downloadedBytes / 1_000_000.0, if (totalBytes > 0) totalBytes / 1_000_000.0 else 0.0, speedMbps))
-                    }
-                }
-            }
-        } finally {
-            connection.disconnect()
         }
     }
 
