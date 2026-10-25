@@ -161,8 +161,35 @@ class VideoProcessingPipeline(private val context: Context) {
             return failedProject
         }
 
+        val copiedDurationSeconds = runCatching {
+            MediaMetadataRetriever().let { retriever ->
+                try {
+                    retriever.setDataSource(downloadedFile.absolutePath)
+                    (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                        ?.div(1000L)?.toInt() ?: 0)
+                } finally {
+                    retriever.release()
+                }
+            }
+        }.getOrDefault(0)
+        if (copiedDurationSeconds <= 0) {
+            downloadedFile.delete()
+            val message = "تعذر التحقق من أن النسخة المستوردة ملف فيديو قابل للقراءة؛ أوقفنا المعالجة."
+            val failedProject = project.copy(
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 18,
+                statusMessage = message,
+                errorMessage = message
+            )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 18, message)
+            return failedProject
+        }
+
         project = project.copy(
             localVideoPath = downloadedFile.absolutePath,
+            durationSeconds = copiedDurationSeconds,
+            videoFileSizeMb = downloadedFile.length() / 1_000_000.0,
             progressPercent = 40,
             statusMessage = if (isLocalFile) {
                 "تم استيراد الفيديو بنجاح (${downloadedFile.length() / 1_000_000.0} MB)."
