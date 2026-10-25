@@ -149,7 +149,7 @@ fun PipelineScreen(
                                     )
                                 )
                                 Text(
-                                    text = "تفريغ فرنسي احترافي بمعايير Netflix و Amazon وترجمة متزامنة",
+                                    text = "استيراد فيديو محلي والتحقق من كل مرحلة قبل تصدير النتائج",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color.White.copy(alpha = 0.9f)
                                     )
