@@ -3,6 +3,7 @@ package com.example.service
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Environment
 import com.example.data.model.PipelineStage
 import com.example.data.model.PlatformType
 import com.example.data.model.PresetSample
@@ -136,18 +137,36 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 18, project.statusMessage)
 
         val downloadedFile: File = try {
-            VideoDownloaderService.importVideoToAppStorage(
-                context = context,
-                source = sourceUri ?: error("ملف الفيديو المختار غير صالح."),
-                videoTitle = videoTitle
-            ) { progress ->
-                val pipelineProgress = 18 + (progress.percent * 22 / 100)
-                val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
-                val updatedMsg = "نسخ الملف: ${progress.downloadedMb}MB$total (${progress.percent}%)"
-                _currentProject.value = _currentProject.value?.copy(
-                    progressPercent = pipelineProgress,
-                    statusMessage = updatedMsg
-                )
+            val existingAppCopy = if (sourceUri?.scheme.equals("file", ignoreCase = true)) {
+                runCatching {
+                    val candidate = File(sourceUri.path ?: "")
+                    val appOwnedDirectory = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+                        ?.let { File(it, "SubVid").canonicalFile }
+                    candidate.takeIf {
+                        appOwnedDirectory != null &&
+                            it.isFile &&
+                            it.canonicalFile.parentFile == appOwnedDirectory
+                    }
+                }.getOrNull()
+            } else null
+
+            if (existingAppCopy != null) {
+                onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 40, "إعادة استخدام النسخة المحلية الموجودة دون نسخها مرة أخرى.")
+                existingAppCopy
+            } else {
+                VideoDownloaderService.importVideoToAppStorage(
+                    context = context,
+                    source = sourceUri ?: error("ملف الفيديو المختار غير صالح."),
+                    videoTitle = videoTitle
+                ) { progress ->
+                    val pipelineProgress = 18 + (progress.percent * 22 / 100)
+                    val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""
+                    val updatedMsg = "نسخ الملف: ${progress.downloadedMb}MB$total (${progress.percent}%)"
+                    _currentProject.value = _currentProject.value?.copy(
+                        progressPercent = pipelineProgress,
+                        statusMessage = updatedMsg
+                    )
+                }
             }
         } catch (error: Exception) {
             val message = error.message ?: "تعذر تنزيل الفيديو من الرابط"
