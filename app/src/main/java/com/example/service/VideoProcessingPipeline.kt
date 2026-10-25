@@ -251,7 +251,21 @@ class VideoProcessingPipeline(private val context: Context) {
             delay(500)
         } else {
             for ((index, segment) in rawFrenchSegments.withIndex()) {
-                val arabic = ArabicTranslator.translateFrenchToArabic(segment.frenchText)
+                val arabic = try {
+                    ArabicTranslator.translateFrenchToArabic(segment.frenchText)
+                } catch (error: Exception) {
+                    val message = error.message ?: "تعذرت ترجمة المقطع ${index + 1}."
+                    val failedProject = project.copy(
+                        segments = translatedSegments.toList(),
+                        currentStage = PipelineStage.ERROR,
+                        progressPercent = 74,
+                        statusMessage = message,
+                        errorMessage = message
+                    )
+                    _currentProject.value = failedProject
+                    onStageChanged(PipelineStage.ERROR, 74, message)
+                    return failedProject
+                }
                 // Strict preservation of the exact start and end times!
                 translatedSegments.add(
                     segment.copy(
