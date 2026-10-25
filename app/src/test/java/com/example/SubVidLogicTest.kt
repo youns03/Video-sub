@@ -106,6 +106,6 @@ class SubVidLogicTest {
 
     @Test
     fun testImportedVideoIsNotClaimedToBeTranscodedTo360p() {
-        assertEquals("Original source (no transcoding)", com.example.service.VideoDownloaderService.TARGET_RESOLUTION)
+        assertEquals("Original source (no transcoding)", com.example.service.VideoDownloaderService.SOURCE_QUALITY_LABEL)
     }
 }
