@@ -230,7 +230,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             segments = rawFrenchSegments,
             progressPercent = 70,
-            statusMessage = "تم تفريغ ${rawFrenchSegments.size} مقطعاً بأختام زمنية ومعدل قراءة منضبط (17 CPS)."
+            statusMessage = "تم الحصول على ${rawFrenchSegments.size} مقطعاً؛ ستُراجع صلاحية التوقيتات قبل التصدير."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 70, project.statusMessage)
