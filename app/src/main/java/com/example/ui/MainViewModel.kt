@@ -38,7 +38,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val currentProject: StateFlow<VideoProject?> = pipeline.currentProject
 
     val savedProjects: StateFlow<List<VideoProject>> = projectDao.getAllProjectsFlow()
-        .map { list -> list.map { it.toVideoProject() } }
+        .map { list -> list.map { it.toVideoProject() }.filterNot { project -> PresetSamples.list.any { sample -> sample.url == project.sourceUrl } } }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _inputUrl = MutableStateFlow("")
