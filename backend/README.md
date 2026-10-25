@@ -17,3 +17,5 @@ Only public URLs are supported. Private, login-protected, age-restricted, or reg
 ## Connect the Android build
 
 Deploy the `render.yaml` service (or the Docker image on another HTTPS host), then add its HTTPS URL as the repository Actions secret `SUBVID_EXTRACTOR_URL`. The APK workflow passes that secret to Gradle at build time. If the secret is empty, the app refuses social-page URLs instead of showing a fake video.
+
+For automatic redeploys, create a Render deploy hook for the service and save it as the repository Actions secret `RENDER_DEPLOY_HOOK_URL`. The `backend-deploy.yml` workflow will trigger it whenever `backend/` changes.
