@@ -159,40 +159,58 @@ object VideoDownloaderService {
      * Exports the downloaded 360p MP4 file to public user storage (Downloads or Movies)
      */
     fun saveVideoToUserGallery(context: Context, sourceFile: File, title: String): Uri? {
-        val fileName = "SubVid_360p_${title.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25)}.mp4"
+        if (!sourceFile.isFile || sourceFile.length() <= 0L) return null
+
+        val sanitizedTitle = title.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25).ifBlank { "video" }
+        val extension = sourceFile.extension.lowercase(Locale.ROOT)
+            .takeIf { it.matches(Regex("[a-z0-9]{2,5}")) } ?: "video"
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "SubVid_${sanitizedTitle}_$timestamp.$extension"
+        val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+            ?: "application/octet-stream"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.MIME_TYPE, mimeType)
                 put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/SubVid")
                 put(MediaStore.Video.Media.IS_PENDING, 1)
             }
 
             val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
-            if (uri != null) {
-                resolver.openOutputStream(uri)?.use { out ->
-                    FileInputStream(sourceFile).use { input ->
-                        input.copyTo(out)
-                    }
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues) ?: return null
+            return try {
+                val output = resolver.openOutputStream(uri) ?: throw java.io.IOException("تعذر فتح ملف الحفظ في المعرض.")
+                output.use { out ->
+                    FileInputStream(sourceFile).use { input -> input.copyTo(out) }
                 }
                 contentValues.clear()
                 contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
                 resolver.update(uri, contentValues, null, null)
-                return uri
+                uri
+            } catch (error: Exception) {
+                resolver.delete(uri, null, null)
+                null
             }
         } else {
-            val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+            val publicDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                "SubVid"
+            )
+            if (!publicDir.exists() && !publicDir.mkdirs()) return null
             val targetFile = File(publicDir, fileName)
-            sourceFile.copyTo(targetFile, overwrite = true)
-            return FileProvider.getUriForFile(context, "${context.packageName}.provider", targetFile)
+            return try {
+                sourceFile.copyTo(targetFile, overwrite = false)
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", targetFile)
+            } catch (error: Exception) {
+                targetFile.delete()
+                null
+            }
         }
-        return null
     }
 
     /**
-     * Opens Android Sharesheet to send or open the 360p MP4 video.
+     * Opens Android Sharesheet to send or open the original imported video.
      */
     fun shareVideo(context: Context, videoFile: File, title: String) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", videoFile)
