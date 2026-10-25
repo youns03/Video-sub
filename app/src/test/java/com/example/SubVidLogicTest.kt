@@ -10,6 +10,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
+import java.io.IOException
 
 class SubVidLogicTest {
 
@@ -80,14 +82,17 @@ class SubVidLogicTest {
     }
 
     @Test
-    fun testStudioStandards_NetflixAmazonSpecs() {
-        assertTrue(com.example.service.FrenchSTTEngine.MIN_DURATION_MS in 1000L..2000L)
-        assertTrue(com.example.service.FrenchSTTEngine.MAX_DURATION_MS in 5000L..7500L)
-        assertTrue(com.example.service.FrenchSTTEngine.MAX_CHARS_PER_LINE in 35..45)
+    fun testTranscriptionFailsClosedInsteadOfInventingDialogue() = runBlocking {
+        try {
+            com.example.service.FrenchSTTEngine.transcribeAudioWithStudioStandards(30) { _, _ -> }
+            throw AssertionError("Transcription must not return fabricated dialogue")
+        } catch (error: IOException) {
+            assertTrue(error.message.orEmpty().contains("غير مدمج"))
+        }
     }
 
     @Test
-    fun test360pResolutionTarget() {
-        assertEquals("360p (SD - 640x360)", com.example.service.VideoDownloaderService.TARGET_RESOLUTION)
+    fun testImportedVideoIsNotClaimedToBeTranscodedTo360p() {
+        assertEquals("Original source (no transcoding)", com.example.service.VideoDownloaderService.TARGET_RESOLUTION)
     }
 }
