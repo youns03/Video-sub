@@ -224,6 +224,6 @@ object VideoDownloaderService {
             putExtra(Intent.EXTRA_TEXT, "فيديو مستورد من الهاتف عبر تطبيق SubVid.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة الفيديو الأصلي"))
+        context.startActivity(Intent.createChooser(intent, "مشاركة الفيديو الأصلي").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
