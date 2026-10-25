@@ -40,11 +40,17 @@ class VideoProcessingPipeline(private val context: Context) {
         val isLocalFile = sourceUri?.scheme.equals("content", ignoreCase = true) ||
             sourceUri?.scheme.equals("file", ignoreCase = true)
 
-        // 1. Stage 1: Validate URL only when the user actually supplied a URL.
+        // This build intentionally accepts imported local files only; no URL or demo shortcut.
         val validation = when {
-            presetSample != null -> UrlValidationResult(true, presetSample.platform, presetSample.url, presetSample.title)
+            presetSample != null -> UrlValidationResult(
+                false, PlatformType.LOCAL_FILE, inputUrl, "",
+                errorMessage = "العينات التجريبية معطلة حتى لا تُعرض حوارات وهمية كأنها تفريغ حقيقي."
+            )
             isLocalFile -> UrlValidationResult(true, PlatformType.LOCAL_FILE, inputUrl, "فيديو مستورد")
-            else -> UrlValidator.validate(inputUrl)
+            else -> UrlValidationResult(
+                false, PlatformType.LOCAL_FILE, inputUrl, "",
+                errorMessage = "اختر ملف فيديو من الهاتف. معالجة الروابط غير مفعلة في هذه النسخة."
+            )
         }
 
         if (!validation.isValid) {
