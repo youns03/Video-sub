@@ -15,53 +15,6 @@ object ArabicTranslator {
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
-    // High quality offline fallback dictionary and contextual mapping
-    private val offlineFrenchToArabicDictionary = mapOf(
-        "bonjour à tous" to "مرحباً بالجميع",
-        "aujourd'hui" to "اليوم",
-        "nous découvrons" to "نكتشف سوياً",
-        "les secrets" to "أسرار",
-        "du pain artisanal" to "الخبز الحرفي",
-        "parisien" to "الباريسي",
-        "tout commence par" to "يبدأ كل شيء بـ",
-        "le choix d'une farine" to "اختيار نوعية دقيق",
-        "biologique" to "عضوية",
-        "fermentation lente" to "تخمير بطيء",
-        "cette méthode" to "هذه الطريقة",
-        "traditionnelle" to "التقليدية والتراثية",
-        "permet d'obtenir" to "تتيح الحصول على",
-        "une croûte dorée" to "قشرة ذهبية",
-        "croustillante" to "مقرمشة ولذيذة",
-        "en france" to "في فرنسا",
-        "la baguette" to "خبز الباغيت",
-        "patrimoine mondial" to "التراث العالمي",
-        "unesco" to "اليونسكو",
-        "une véritable fierté" to "مبعث فخر حقيقي",
-        "nos artisans" to "لحرفيينا",
-        "passionnés" to "الشغوفين",
-        "savoir-faire" to "هذه المهارة العريقة",
-        "la transition écologique" to "التحول البيئي",
-        "défi majeur" to "التحدي الأكبر",
-        "notre siècle" to "في عصرنا الحالي",
-        "énergie solaire" to "الطاقة الشمسية",
-        "énergie éolienne" to "طاقة الرياح",
-        "croissance spectaculaire" to "نمواً استثنائياً وسريعاً",
-        "transports propres" to "وسائل النقل النظيف",
-        "citoyen" to "مواطن",
-        "habitudes plus durables" to "عادات أكثر استدامة",
-        "l'avenir de notre planète" to "مستقبل كوكبنا",
-        "intelligence artificielle" to "الذكاء الاصطناعي",
-        "chercheurs" to "الباحثين والمطورين",
-        "langues étrangères" to "اللغات الأجنبية",
-        "traitement automatique" to "المعالجة الآلية",
-        "langage naturel" to "للغة الطبيعية",
-        "précision" to "الدقة والجودة",
-        "temps quasi réel" to "الوقت الفعلي الفوري",
-        "traduire la voix" to "ترجمة الصوت المنطوق",
-        "perspectives passionnantes" to "آفاقاً واعدة ومشوقة",
-        "communication mondiale" to "للتواصل الإنساني العالمي"
-    )
-
     /**
      * Translates French text into natural, contextual Arabic suitable for video subtitles.
      */
@@ -101,35 +54,6 @@ object ArabicTranslator {
             if (error is java.io.IOException) throw error
             throw java.io.IOException("تعذر الاتصال بخدمة الترجمة. تحقق من الإنترنت ثم أعد المحاولة.", error)
         }
-    }
-
-    private fun translateOfflineContextual(french: String): String {
-        // Direct sentence match check
-        for ((frKey, arVal) in offlineFrenchToArabicDictionary) {
-            if (french.contains(frKey, ignoreCase = true)) {
-                // Return tailored translation if recognized
-            }
-        }
-
-        // Word and phrase reconstruction
-        var translated = french
-        offlineFrenchToArabicDictionary.forEach { (frPhrase, arPhrase) ->
-            translated = translated.replace(Regex("(?i)\\b$frPhrase\\b"), arPhrase)
-        }
-
-        // If no substitutions happened, provide a clean, human-readable Arabic synthesis
-        if (translated == french) {
-            return when {
-                french.contains("merci", ignoreCase = true) -> "شكراً جزيلاً لكم على المتابعة."
-                french.contains("comment", ignoreCase = true) -> "كيف يمكننا تحقيق هذا الأمر؟"
-                french.contains("pourquoi", ignoreCase = true) -> "لماذا يعتبر هذا مهماً للغاية؟"
-                french.contains("oui", ignoreCase = true) -> "نعم، بكل تأكيد."
-                french.contains("non", ignoreCase = true) -> "لا، ليس في هذا السياق."
-                else -> "ترجمة صوتية: $french"
-            }
-        }
-
-        return translated
     }
 
     /**
