@@ -214,12 +214,12 @@ class VideoProcessingPipeline(private val context: Context) {
             val message = error.message ?: "تعذر تفريغ الصوت الفرنسي."
             val failedProject = project.copy(
                 currentStage = PipelineStage.ERROR,
-                progressPercent = 48,
+                progressPercent = 40,
                 statusMessage = message,
                 errorMessage = message
             )
             _currentProject.value = failedProject
-            onStageChanged(PipelineStage.ERROR, 48, message)
+            onStageChanged(PipelineStage.ERROR, 40, message)
             return failedProject
         }
 
@@ -268,12 +268,12 @@ class VideoProcessingPipeline(private val context: Context) {
                 val failedProject = project.copy(
                     segments = translatedSegments.toList(),
                     currentStage = PipelineStage.ERROR,
-                    progressPercent = 74,
+                    progressPercent = project.progressPercent,
                     statusMessage = message,
                     errorMessage = message
                 )
                 _currentProject.value = failedProject
-                onStageChanged(PipelineStage.ERROR, 74, message)
+                onStageChanged(PipelineStage.ERROR, project.progressPercent, message)
                 return failedProject
             }
             translatedSegments.add(
