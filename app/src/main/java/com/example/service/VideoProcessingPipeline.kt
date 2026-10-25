@@ -76,8 +76,13 @@ class VideoProcessingPipeline(private val context: Context) {
                 MediaMetadataRetriever().let { retriever ->
                     try {
                         retriever.setDataSource(context, sourceUri)
-                        (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-                            ?.div(1000L)?.toInt() ?: 0).coerceAtLeast(0)
+                        val hasVideoTrack = retriever
+                            .extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO)
+                            ?.equals("yes", ignoreCase = true) == true
+                        if (!hasVideoTrack) 0 else {
+                            (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                                ?.div(1000L)?.toInt() ?: 0).coerceAtLeast(0)
+                        }
                     } finally {
                         retriever.release()
                     }
@@ -86,7 +91,7 @@ class VideoProcessingPipeline(private val context: Context) {
         } else 0
 
         if (localDuration <= 0) {
-            val message = "تعذر قراءة مدة الفيديو أو أن الملف غير مدعوم. لم نستخدم مدة تقديرية بدلاً من بيانات الملف."
+            val message = "تعذر العثور على مسار فيديو قابل للقراءة أو قراءة مدته. أوقفنا المعالجة دون استخدام بيانات تقديرية."
             val failedProject = VideoProject(
                 id = id,
                 title = videoTitle,
@@ -161,8 +166,13 @@ class VideoProcessingPipeline(private val context: Context) {
             MediaMetadataRetriever().let { retriever ->
                 try {
                     retriever.setDataSource(downloadedFile.absolutePath)
-                    (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-                        ?.div(1000L)?.toInt() ?: 0)
+                    val hasVideoTrack = retriever
+                        .extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO)
+                        ?.equals("yes", ignoreCase = true) == true
+                    if (!hasVideoTrack) 0 else {
+                        (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                            ?.div(1000L)?.toInt() ?: 0)
+                    }
                 } finally {
                     retriever.release()
                 }
@@ -170,7 +180,7 @@ class VideoProcessingPipeline(private val context: Context) {
         }.getOrDefault(0)
         if (copiedDurationSeconds <= 0) {
             downloadedFile.delete()
-            val message = "تعذر التحقق من أن النسخة المستوردة ملف فيديو قابل للقراءة؛ أوقفنا المعالجة."
+            val message = "النسخة المستوردة لا تحتوي على مسار فيديو قابل للقراءة أو تعذر التحقق من مدته؛ أوقفنا المعالجة."
             val failedProject = project.copy(
                 currentStage = PipelineStage.ERROR,
                 progressPercent = 18,
