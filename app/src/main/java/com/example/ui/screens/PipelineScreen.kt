@@ -228,6 +228,11 @@ fun PipelineScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Text(
+                            text = "تنبيه: استيراد الفيديو والتحقق من ملفه يعملان، لكن محرك التفريغ الصوتي الحقيقي غير مدمج بعد؛ لذلك ستتوقف المعالجة عند هذه المرحلة ولن تُنشأ ترجمة تخمينية.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AmberWarning
+                        )
                         Button(
                             onClick = { videoPickerLauncher.launch("video/*") },
                             modifier = Modifier.fillMaxWidth().height(52.dp).testTag("pick_local_video_button"),
