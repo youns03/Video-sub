@@ -21,12 +21,12 @@ class VideoProcessingPipeline(private val context: Context) {
     val currentProject: StateFlow<VideoProject?> = _currentProject.asStateFlow()
 
     /**
-     * Executes the refined 5-stage transformation pipeline:
-     * 1. URL validation
-     * 2. Full 360p MP4 Video download
-     * 3. French speech extraction (Studio-grade Netflix/Amazon standard cues)
-     * 4. Accurate Arabic translation with exact timestamp preservation
-     * 5. SRT file building, 360p download ready, and Hardsub merger option
+     * Local-file processing pipeline.
+     * - Validates a picked local video and reads its real metadata.
+     * - Copies the original file without transcoding.
+     * - Fails closed at speech transcription until a real STT engine is integrated.
+     * - Translation uses an online machine-translation service and must be reviewed.
+     * - SRT export validates text and timeline before writing.
      */
     suspend fun processVideo(
         inputUrl: String,
@@ -122,7 +122,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.VALIDATING_URL, 10, project.statusMessage)
         delay(400)
 
-        // 2. Stage 2: Downloading video in 360p MP4 specifically
+        // 2. Stage 2: Copy the original local video without transcoding
         project = project.copy(
             currentStage = PipelineStage.DOWNLOADING_VIDEO_360P,
             progressPercent = 18,
@@ -196,7 +196,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 40, project.statusMessage)
         delay(350)
 
-        // 3. Stage 3: French Speech Extraction with Studio Netflix/Amazon Standards
+        // 3. Stage 3: French speech transcription; the real STT engine is not integrated yet
         project = project.copy(
             currentStage = PipelineStage.EXTRACTING_SPEECH_FR,
             progressPercent = 48,
@@ -258,7 +258,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 70, project.statusMessage)
         delay(400)
 
-        // 4. Stage 4: Synchronized Arabic Translation
+        // 4. Stage 4: Online Arabic machine translation
         project = project.copy(
             currentStage = PipelineStage.TRANSLATING_AR,
             progressPercent = 74,
@@ -315,7 +315,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.TRANSLATING_AR, 90, project.statusMessage)
         delay(350)
 
-        // 5. Stage 5: Building SRT & preparing download links
+        // 5. Stage 5: Validate subtitle data before export
         project = project.copy(
             currentStage = PipelineStage.BUILDING_SRT,
             progressPercent = 95,
