@@ -53,8 +53,14 @@ object UrlValidator {
             val uri = URI(trimmed)
             val host = (uri.host ?: "").lowercase()
 
+            val isFacebookHost = host == "facebook.com" || host.endsWith(".facebook.com") ||
+                    host == "fb.watch" || host.endsWith(".fb.watch") ||
+                    host == "fb.com" || host.endsWith(".fb.com")
+            val isYouTubeHost = host == "youtube.com" || host.endsWith(".youtube.com") ||
+                    host == "youtu.be" || host.endsWith(".youtu.be")
+
             when {
-                host.contains("facebook.com") || host.contains("fb.watch") || host.contains("fb.com") -> {
+                isFacebookHost -> {
                     val isPrivate = urlLower.contains("groups/") && !urlLower.contains("public") ||
                             urlLower.contains("story.php") ||
                             urlLower.contains("login")
@@ -75,7 +81,7 @@ object UrlValidator {
                     )
                 }
 
-                host.contains("youtube.com") || host.contains("youtu.be") -> {
+                isYouTubeHost -> {
                     val isShorts = urlLower.contains("/shorts/")
                     val suggestion = if (isShorts) "يوتيوب شورتس (Shorts)" else "فيديو يوتيوب (YouTube Video)"
                     UrlValidationResult(
