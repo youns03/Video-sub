@@ -240,7 +240,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.TRANSLATING_AR,
             progressPercent = 74,
-            statusMessage = "جاري الترجمة الدقيقة إلى العربية مع الحفاظ الصارم على توقيت كل عبارة..."
+            statusMessage = "جاري طلب ترجمة آلية عبر الإنترنت؛ قد تحتاج النتيجة إلى مراجعة بشرية..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.TRANSLATING_AR, 74, project.statusMessage)
@@ -307,7 +307,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.COMPLETED,
             progressPercent = 100,
-            statusMessage = "اكتملت المعالجة بنجاح! يمكنك الآن تحميل فيديو 360p، تحميل ملف SRT، أو دمج الترجمة."
+            statusMessage = "اكتملت مراحل المعالجة والتحقق. يمكنك حفظ ملف SRT والفيديو الأصلي؛ تحويل الدقة وحرق الترجمة غير متاحين بعد."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.COMPLETED, 100, project.statusMessage)
