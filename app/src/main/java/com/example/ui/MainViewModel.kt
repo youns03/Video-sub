@@ -180,6 +180,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Download & Export Handlers
     fun downloadSrtFile() {
         val current = currentProject.value ?: return
+        if (current.segments.isEmpty() || current.segments.any { it.arabicText.isBlank() }) {
+            _statusNotice.value = "لا يمكن تصدير SRT: لا توجد ترجمة عربية مكتملة وصالحة."
+            return
+        }
         val file = SrtGenerator.saveSrtToFile(context, current.srtContent, current.title)
         _statusNotice.value = "تم حفظ ملف الترجمة في: Documents/Subtitles/${file.name}"
     }
@@ -187,65 +191,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun download360pVideo() {
         val current = currentProject.value ?: return
         val localPath = current.localVideoPath
-        val videoFile = if (localPath != null && File(localPath).exists()) {
-            File(localPath)
-        } else {
-            // Use the bundled valid MP4 for offline/demo projects.
-            val exportDir = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "SubVid")
-            if (!exportDir.exists()) exportDir.mkdirs()
-            val f = File(exportDir, "Video_360p_${current.title.take(15)}.mp4")
-            copyBundledVideoIfNeeded(f)
-            f
+        val videoFile = localPath?.let(::File)
+        if (videoFile == null || !videoFile.isFile || videoFile.length() <= 0L) {
+            _statusNotice.value = "لم نعثر على ملف الفيديو الأصلي. لن نصدر فيديو تجريبياً بدلاً منه."
+            return
         }
-
-        VideoDownloaderService.saveVideoToUserGallery(context, videoFile, current.title)
-        _statusNotice.value = "تم حفظ فيديو 360p MP4 (${current.videoFileSizeMb}MB) في مجلد الأفلام والمعرض!"
+        val savedUri = VideoDownloaderService.saveVideoToUserGallery(context, videoFile, current.title)
+        _statusNotice.value = if (savedUri != null) {
+            "تم حفظ الفيديو الأصلي في المعرض. لم يتم تحويل دقته إلى 360p."
+        } else {
+            "تعذر حفظ الفيديو في المعرض."
+        }
     }
 
     fun mergeHardsubAndExport() {
         val current = currentProject.value ?: return
         viewModelScope.launch {
             _isMergingHardsub.value = true
-            _statusNotice.value = "جاري دمج الترجمة العربية داخل فيديو 360p..."
-            val localPath = current.localVideoPath
-            val videoFile = if (localPath != null && File(localPath).exists()) {
-                File(localPath)
-            } else {
-                File(context.cacheDir, "temp_video.mp4").also(::copyBundledVideoIfNeeded)
+            _statusNotice.value = "جارٍ التحقق من إمكانية دمج الترجمة..."
+            try {
+                val localPath = current.localVideoPath
+                val videoFile = localPath?.let(::File)
+                if (videoFile == null || !videoFile.isFile || videoFile.length() <= 0L) {
+                    throw IllegalStateException("ملف الفيديو الأصلي غير موجود.")
+                }
+                if (current.segments.isEmpty() || current.segments.any { it.arabicText.isBlank() }) {
+                    throw IllegalStateException("لا توجد ترجمة عربية مكتملة لدمجها.")
+                }
+                VideoSubtitleMerger.mergeSubtitlesIntoVideo(
+                    context = context,
+                    sourceVideoFile = videoFile,
+                    srtContent = current.srtContent,
+                    videoTitle = current.title
+                ) { }
+                _statusNotice.value = "تعذر دمج الترجمة: محرك الحرق الحقيقي غير مدمج بعد."
+            } catch (error: Exception) {
+                _statusNotice.value = error.message ?: "تعذر دمج الترجمة داخل الفيديو."
+            } finally {
+                _isMergingHardsub.value = false
             }
-
-            val mergedFile = VideoSubtitleMerger.mergeSubtitlesIntoVideo(
-                context = context,
-                sourceVideoFile = videoFile,
-                srtContent = current.srtContent,
-                videoTitle = current.title
-            ) { percent ->
-                // Progress
-            }
-
-            val updatedProject = current.copy(isHardsubMerged = true)
-            pipeline.updateProject(updatedProject)
-            saveProjectToDb(updatedProject)
-            _isMergingHardsub.value = false
-            _statusNotice.value = "تم دمج الترجمة بنجاح! تم حفظ الفيديو المدمج في: ${mergedFile.name}"
         }
     }
 
     fun shareVideoFile() {
         val current = currentProject.value ?: return
-        val localPath = current.localVideoPath
-        val videoFile = if (localPath != null && File(localPath).exists()) {
-            File(localPath)
-        } else {
-            File(context.cacheDir, "sample_video.mp4").also(::copyBundledVideoIfNeeded)
+        val videoFile = current.localVideoPath?.let(::File)
+        if (videoFile == null || !videoFile.isFile || videoFile.length() <= 0L) {
+            _statusNotice.value = "ملف الفيديو الأصلي غير متاح للمشاركة."
+            return
         }
         VideoDownloaderService.shareVideo(context, videoFile, current.title)
-    }
-
-    fun shareSrtFile() {
-        val current = currentProject.value ?: return
-        val file = SrtGenerator.saveSrtToFile(context, current.srtContent, current.title)
-        SrtGenerator.shareSrtFile(context, file, current.title)
     }
 
     fun deleteProject(projectId: String) {
