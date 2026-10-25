@@ -1,6 +1,8 @@
 package com.example.service
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import com.example.data.model.PipelineStage
 import com.example.data.model.PlatformType
 import com.example.data.model.PresetSample
@@ -33,11 +35,16 @@ class VideoProcessingPipeline(private val context: Context) {
     ): VideoProject {
         val id = UUID.randomUUID().toString()
 
-        // 1. Stage 1: URL Validation
-        val validation = if (presetSample != null) {
-            UrlValidationResult(true, presetSample.platform, presetSample.url, presetSample.title)
-        } else {
-            UrlValidator.validate(inputUrl)
+        // Local video imports bypass URL validation and never contact an external service.
+        val sourceUri = runCatching { Uri.parse(inputUrl) }.getOrNull()
+        val isLocalFile = sourceUri?.scheme.equals("content", ignoreCase = true) ||
+            sourceUri?.scheme.equals("file", ignoreCase = true)
+
+        // 1. Stage 1: Validate URL only when the user actually supplied a URL.
+        val validation = when {
+            presetSample != null -> UrlValidationResult(true, presetSample.platform, presetSample.url, presetSample.title)
+            isLocalFile -> UrlValidationResult(true, PlatformType.LOCAL_FILE, inputUrl, "فيديو مستورد")
+            else -> UrlValidator.validate(inputUrl)
         }
 
         if (!validation.isValid) {
@@ -80,7 +87,23 @@ class VideoProcessingPipeline(private val context: Context) {
         } else null
 
         val videoTitle = extractedVideo?.title ?: presetSample?.title ?: validation.titleSuggestion
-        val estimatedDuration = extractedVideo?.durationSeconds ?: presetSample?.durationSeconds ?: 28
+        val localDuration = if (isLocalFile && sourceUri != null) {
+            runCatching {
+                MediaMetadataRetriever().let { retriever ->
+                    try {
+                        retriever.setDataSource(context, sourceUri)
+                        (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                            ?.div(1000L)?.toInt() ?: 0).coerceAtLeast(1)
+                    } finally {
+                        retriever.release()
+                    }
+                }
+            }.getOrDefault(0)
+        } else 0
+        val estimatedDuration = extractedVideo?.durationSeconds
+            ?: presetSample?.durationSeconds
+            ?: localDuration.takeIf { it > 0 }
+            ?: 28
         val mediaUrl = extractedVideo?.mediaUrl ?: validation.cleanUrl
         val calculatedSizeMb = ((estimatedDuration * 0.22).coerceAtLeast(1.8) * 10).toInt() / 10.0
 
@@ -93,7 +116,7 @@ class VideoProcessingPipeline(private val context: Context) {
             currentStage = PipelineStage.VALIDATING_URL,
             progressPercent = 10,
             videoFileSizeMb = calculatedSizeMb,
-            statusMessage = "جاري التحقق من إمكانية الوصول إلى الفيديو..."
+            statusMessage = if (isLocalFile) "جاري تجهيز الفيديو المستورد من الهاتف..." else "جاري التحقق من إمكانية الوصول إلى الفيديو..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.VALIDATING_URL, 10, project.statusMessage)
@@ -103,7 +126,7 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.DOWNLOADING_VIDEO_360P,
             progressPercent = 18,
-            statusMessage = "جاري حصر الجودة على 360p (SD) وتحميل ملف MP4 بالكامل..."
+            statusMessage = if (isLocalFile) "جاري استيراد ملف الفيديو من الهاتف..." else "جاري حصر الجودة على 360p (SD) وتحميل ملف MP4 بالكامل..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 18, project.statusMessage)
@@ -140,7 +163,11 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             localVideoPath = downloadedFile.absolutePath,
             progressPercent = 40,
-            statusMessage = "تم تحميل فيديو MP4 بدقة 360p (${calculatedSizeMb} MB) بنجاح."
+            statusMessage = if (isLocalFile) {
+                "تم استيراد الفيديو بنجاح (${downloadedFile.length() / 1_000_000.0} MB)."
+            } else {
+                "تم تحميل فيديو MP4 بدقة 360p (${calculatedSizeMb} MB) بنجاح."
+            }
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 40, project.statusMessage)
