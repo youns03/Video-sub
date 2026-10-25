@@ -102,12 +102,8 @@ fun PipelineScreen(
         if (uri != null) {
             onUrlChange(uri.toString())
             selectedPreset = null
-            Toast.makeText(context, "تم اختيار الفيديو المحلي بنجاح", Toast.LENGTH_SHORT).show()
+            onStartPipeline(uri.toString(), null)
         }
-    }
-
-    val validationResult = remember(inputUrl) {
-        if (inputUrl.isNotBlank()) UrlValidator.validate(inputUrl) else null
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -130,7 +126,7 @@ fun PipelineScreen(
                     Box(modifier = Modifier.fillMaxWidth()) {
                         Image(
                             painter = painterResource(id = R.drawable.img_subvid_hero_1792952643276),
-                            contentDescription = "تحويل فيديوهات فيسبوك إلى ترجمة عربية",
+                            contentDescription = "استيراد فيديو من الهاتف وترجمته إلى العربية",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 8.5f),
@@ -146,7 +142,7 @@ fun PipelineScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "تحميل فيديو 360p وتفريغ الصوت وترجمته",
+                                    text = "استيراد الفيديو وتفريغ الصوت وترجمته",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold
@@ -188,14 +184,14 @@ fun PipelineScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "الجودة المعتمدة تلقائياً: 360p (SD - 640x360)",
+                                text = "استيراد مباشر للفيديو من الهاتف",
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             )
                             Text(
-                                text = "يتم حصر التحميل دائماً بدقة 360p لتوفير باقة البيانات وتسريع المعالجة والتفريغ.",
+                                text = "لا يوجد تحميل من الإنترنت؛ اختر ملف الفيديو الذي تريد معالجته.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                 )
@@ -205,215 +201,49 @@ fun PipelineScreen(
                 }
             }
 
-            // Input URL Card
+            // Local video import only — no URL entry, links, or download setup.
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("local_video_import_card"),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Icon(
+                            Icons.Default.PlayCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(46.dp),
+                            tint = PrimaryBlue
+                        )
+                        Text(
+                            text = "اختر فيديو من هاتفك",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "استيراد مباشر من المعرض أو الملفات. لا حاجة إلى روابط أو تحميل من مواقع خارجية.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = { videoPickerLauncher.launch("video/*") },
+                            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("pick_local_video_button"),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                            enabled = currentProject?.isProcessing != true
                         ) {
+                            Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "رابط الفيديو (Facebook / YouTube)",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-
-                            if (validationResult != null && validationResult.isValid) {
-                                val badgeColor = when (validationResult.platform) {
-                                    PlatformType.FACEBOOK -> FacebookBlue
-                                    PlatformType.YOUTUBE -> YouTubeRed
-                                    else -> PrimaryBlue
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(badgeColor.copy(alpha = 0.15f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = validationResult.platform.displayName,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = badgeColor,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        // LTR Text field for clean URL display
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                            OutlinedTextField(
-                                value = inputUrl,
-                                onValueChange = {
-                                    onUrlChange(it)
-                                    selectedPreset = null
-                                },
-                                placeholder = {
-                                    Text("https://www.facebook.com/reel/...")
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("video_url_input_field"),
-                                shape = RoundedCornerShape(12.dp),
-                                singleLine = true,
-                                trailingIcon = {
-                                    if (inputUrl.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = {
-                                                onUrlChange("")
-                                                selectedPreset = null
-                                            },
-                                            modifier = Modifier.testTag("clear_url_button")
-                                        ) {
-                                            Icon(Icons.Default.Clear, contentDescription = "مسح")
-                                        }
-                                    }
-                                }
+                                text = if (currentProject?.isProcessing == true) "جارٍ تجهيز الفيديو..." else "استيراد الفيديو وبدء المعالجة",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-
-                        // Action Buttons: Paste & Pick File
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = clipboard.primaryClip
-                                    if (clip != null && clip.itemCount > 0) {
-                                        val text = clip.getItemAt(0).text?.toString() ?: ""
-                                        onUrlChange(text)
-                                        selectedPreset = null
-                                        Toast.makeText(context, "تم لصق الرابط من الحافظة", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("paste_url_button"),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = "لصق", modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("لصق الرابط")
-                            }
-
-                            OutlinedButton(
-                                onClick = { videoPickerLauncher.launch("video/*") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("pick_local_video_button"),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.PlayCircle, contentDescription = "ملف", modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("فيديو محلي")
-                            }
-                        }
                     }
-                }
-            }
-
-            // Preset French Video Samples for instant testing
-            item {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "نماذج فرنسية جاهزة للتجربة الفورية:",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(PresetSamples.list) { preset ->
-                            val isSelected = selectedPreset == preset || inputUrl == preset.url
-                            Card(
-                                modifier = Modifier
-                                    .width(260.dp)
-                                    .clickable {
-                                        selectedPreset = preset
-                                        onUrlChange(preset.url)
-                                    }
-                                    .testTag("preset_chip_${preset.title.take(10)}"),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = preset.platform.displayName,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = if (preset.platform == PlatformType.FACEBOOK) FacebookBlue else YouTubeRed,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                        Text(
-                                            text = "360p • ${preset.durationSeconds} ثانية",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = preset.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        maxLines = 1
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = preset.description,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        ),
-                                        maxLines = 2
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Start Processing Action Button
-            item {
-                Button(
-                    onClick = { onStartPipeline(inputUrl, selectedPreset) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("start_processing_button"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                    enabled = inputUrl.isNotBlank() && currentProject?.isProcessing != true
-                ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (currentProject?.isProcessing == true) "جاري التحميل والتفريغ..." else "تحميل 360p وبدء التفريغ والترجمة",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 
