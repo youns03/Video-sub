@@ -2,6 +2,7 @@ package com.example.service
 
 import android.content.Context
 import com.example.data.model.PipelineStage
+import com.example.data.model.PlatformType
 import com.example.data.model.PresetSample
 import com.example.data.model.SubtitleSegment
 import com.example.data.model.VideoProject
@@ -56,8 +57,31 @@ class VideoProcessingPipeline(private val context: Context) {
             return failedProject
         }
 
-        val videoTitle = presetSample?.title ?: validation.titleSuggestion
-        val estimatedDuration = presetSample?.durationSeconds ?: 28
+        val extractedVideo = if (presetSample == null && validation.platform in setOf(PlatformType.FACEBOOK, PlatformType.YOUTUBE)) {
+            try {
+                VideoExtractorService.extract(validation.cleanUrl)
+            } catch (error: Exception) {
+                val message = error.message ?: "تعذر استخراج الفيديو من الرابط"
+                val failedProject = VideoProject(
+                    id = id,
+                    title = validation.titleSuggestion,
+                    sourceUrl = validation.cleanUrl,
+                    platform = validation.platform,
+                    durationSeconds = 0,
+                    currentStage = PipelineStage.ERROR,
+                    progressPercent = 0,
+                    statusMessage = message,
+                    errorMessage = message
+                )
+                _currentProject.value = failedProject
+                onStageChanged(PipelineStage.ERROR, 0, message)
+                return failedProject
+            }
+        } else null
+
+        val videoTitle = extractedVideo?.title ?: presetSample?.title ?: validation.titleSuggestion
+        val estimatedDuration = extractedVideo?.durationSeconds ?: presetSample?.durationSeconds ?: 28
+        val mediaUrl = extractedVideo?.mediaUrl ?: validation.cleanUrl
         val calculatedSizeMb = ((estimatedDuration * 0.22).coerceAtLeast(1.8) * 10).toInt() / 10.0
 
         var project = VideoProject(
@@ -87,9 +111,10 @@ class VideoProcessingPipeline(private val context: Context) {
         val downloadedFile: File = try {
             VideoDownloaderService.downloadVideo360p(
                 context = context,
-                url = validation.cleanUrl,
+                url = mediaUrl,
                 videoTitle = videoTitle,
-                durationSeconds = estimatedDuration
+                durationSeconds = estimatedDuration,
+                requestHeaders = extractedVideo?.httpHeaders.orEmpty()
             ) { progress ->
                 val pipelineProgress = 18 + (progress.percent * 22 / 100)
                 val total = if (progress.totalMb > 0) " من ${progress.totalMb}MB" else ""

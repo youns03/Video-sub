@@ -53,6 +53,8 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
+        env:
+          SUBVID_EXTRACTOR_URL: ${{ secrets.SUBVID_EXTRACTOR_URL }}
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact

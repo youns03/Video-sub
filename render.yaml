@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: subvid-extractor
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    plan: free
+    autoDeploy: true

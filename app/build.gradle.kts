@@ -11,6 +11,7 @@ plugins {
 android {
   namespace = "com.example"
   compileSdk = 36
+  val extractorBaseUrl = (System.getenv("SUBVID_EXTRACTOR_URL") ?: "").trimEnd('/')
 
   defaultConfig {
     applicationId = "com.aistudio.subvidar.vxqml"
@@ -18,6 +19,7 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
+    buildConfigField("String", "EXTRACTOR_BASE_URL", "\"${extractorBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

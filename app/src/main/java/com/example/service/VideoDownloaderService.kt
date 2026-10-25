@@ -38,6 +38,7 @@ object VideoDownloaderService {
         url: String,
         videoTitle: String,
         durationSeconds: Int,
+        requestHeaders: Map<String, String> = emptyMap(),
         onProgress: suspend (DownloadProgress) -> Unit
     ): File = withContext(Dispatchers.IO) {
         val sanitizedTitle = videoTitle.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25)
@@ -59,7 +60,7 @@ object VideoDownloaderService {
                 } ?: error("تعذر فتح الملف المحلي المختار")
                 onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
             }
-            "http", "https" -> downloadDirectMediaUrl(url, videoFile, onProgress)
+            "http", "https" -> downloadDirectMediaUrl(url, videoFile, requestHeaders, onProgress)
             else -> error("مصدر الفيديو غير مدعوم")
         }
 
@@ -73,6 +74,7 @@ object VideoDownloaderService {
     private suspend fun downloadDirectMediaUrl(
         sourceUrl: String,
         destination: File,
+        requestHeaders: Map<String, String>,
         onProgress: suspend (DownloadProgress) -> Unit
     ) {
         val connection = (URL(sourceUrl).openConnection() as HttpURLConnection).apply {
@@ -81,6 +83,7 @@ object VideoDownloaderService {
             instanceFollowRedirects = true
             requestMethod = "GET"
             setRequestProperty("User-Agent", "SubVid/1.0 Android")
+            requestHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         try {
             val responseCode = connection.responseCode
