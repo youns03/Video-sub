@@ -112,7 +112,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             if (finishedProject.isCompleted) {
                 projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(finishedProject))
-                _statusNotice.value = "تم تحميل فيديو 360p وتفريغه وترجمته بنجاح!"
+                _statusNotice.value = if (finishedProject.platform == PlatformType.LOCAL_FILE) "تم استيراد الفيديو وإنشاء مشروع المعالجة." else "اكتملت معالجة المشروع."
             }
         }
     }
