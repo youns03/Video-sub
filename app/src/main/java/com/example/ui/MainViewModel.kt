@@ -169,8 +169,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _statusNotice.value = "لا يمكن تصدير SRT: لا توجد ترجمة عربية مكتملة وصالحة."
             return
         }
-        val file = SrtGenerator.saveSrtToFile(context, current.srtContent, current.title)
-        _statusNotice.value = "تم حفظ ملف الترجمة في: Documents/Subtitles/${file.name}"
+        try {
+            val srt = SrtGenerator.buildSrtContent(current.segments)
+            val file = SrtGenerator.saveSrtToFile(context, srt, current.title)
+            _statusNotice.value = "تم حفظ ملف الترجمة في: Documents/Subtitles/${file.name}"
+        } catch (error: Exception) {
+            _statusNotice.value = error.message ?: "تعذر إنشاء ملف SRT صالح."
+        }
     }
 
     fun download360pVideo() {
@@ -206,7 +211,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 VideoSubtitleMerger.mergeSubtitlesIntoVideo(
                     context = context,
                     sourceVideoFile = videoFile,
-                    srtContent = current.srtContent,
+                    srtContent = SrtGenerator.buildSrtContent(current.segments),
                     videoTitle = current.title
                 ) { }
                 _statusNotice.value = "تعذر دمج الترجمة: محرك الحرق الحقيقي غير مدمج بعد."
@@ -235,7 +240,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         try {
-            val file = SrtGenerator.saveSrtToFile(context, current.srtContent, current.title)
+            val srt = SrtGenerator.buildSrtContent(current.segments)
+            val file = SrtGenerator.saveSrtToFile(context, srt, current.title)
             SrtGenerator.shareSrtFile(context, file, current.title)
         } catch (error: Exception) {
             _statusNotice.value = error.message ?: "تعذرت مشاركة ملف الترجمة."
