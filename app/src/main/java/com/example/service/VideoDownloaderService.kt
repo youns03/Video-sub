@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -43,7 +44,29 @@ object VideoDownloaderService {
     ): File = withContext(Dispatchers.IO) {
         val sanitizedTitle = videoTitle.replace("[^a-zA-Z0-9ء-ي_\\-]".toRegex(), "_").take(25)
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "Video_360p_${sanitizedTitle}_$timestamp.mp4"
+        val sourceUri = Uri.parse(url)
+        val extension = when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
+            "content", "file" -> {
+                val displayName = if (sourceUri.scheme.equals("content", true)) {
+                    runCatching {
+                        context.contentResolver.query(sourceUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                    }.getOrNull()
+                } else sourceUri.lastPathSegment
+                val fromName = displayName?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
+                if (!fromName.isNullOrBlank() && fromName.matches(Regex("[a-z0-9]{2,5}"))) fromName
+                else when (context.contentResolver.getType(sourceUri)?.lowercase(Locale.ROOT)) {
+                    "video/mp4" -> "mp4"
+                    "video/webm" -> "webm"
+                    "video/3gpp" -> "3gp"
+                    "video/quicktime" -> "mov"
+                    "video/x-matroska" -> "mkv"
+                    else -> "video"
+                }
+            }
+            else -> "mp4"
+        }
+        val fileName = "Video_${sanitizedTitle}_$timestamp.$extension"
 
         val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "SubVid")
         if (!dir.exists()) {
@@ -52,12 +75,19 @@ object VideoDownloaderService {
 
         val videoFile = File(dir, fileName)
 
-        val sourceUri = Uri.parse(url)
         when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
-            "content", "file" -> {
+            "content" -> {
                 context.contentResolver.openInputStream(sourceUri)?.use { input ->
                     FileOutputStream(videoFile).use { output -> input.copyTo(output) }
                 } ?: error("تعذر فتح الملف المحلي المختار")
+                onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
+            }
+            "file" -> {
+                val sourceFile = File(sourceUri.path ?: error("مسار الملف المحلي غير صالح"))
+                if (!sourceFile.isFile) error("ملف الفيديو المحلي غير موجود")
+                sourceFile.inputStream().use { input ->
+                    FileOutputStream(videoFile).use { output -> input.copyTo(output) }
+                }
                 onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
             }
             "http", "https" -> downloadDirectMediaUrl(url, videoFile, requestHeaders, onProgress)
