@@ -74,31 +74,40 @@ object VideoDownloaderService {
         }
 
         val videoFile = File(dir, fileName)
+        val partialFile = File(dir, "$fileName.part")
 
-        when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
-            "content" -> {
-                context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                    FileOutputStream(videoFile).use { output -> input.copyTo(output) }
-                } ?: error("تعذر فتح الملف المحلي المختار")
-                onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
-            }
-            "file" -> {
-                val sourceFile = File(sourceUri.path ?: error("مسار الملف المحلي غير صالح"))
-                if (!sourceFile.isFile) error("ملف الفيديو المحلي غير موجود")
-                sourceFile.inputStream().use { input ->
-                    FileOutputStream(videoFile).use { output -> input.copyTo(output) }
+        try {
+            when (sourceUri.scheme?.lowercase(Locale.ROOT)) {
+                "content" -> {
+                    context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                        FileOutputStream(partialFile).use { output -> input.copyTo(output) }
+                    } ?: error("تعذر فتح الملف المحلي المختار")
+                    onProgress(DownloadProgress(100, partialFile.length() / 1_000_000.0, partialFile.length() / 1_000_000.0, 0.0))
                 }
-                onProgress(DownloadProgress(100, videoFile.length() / 1_000_000.0, videoFile.length() / 1_000_000.0, 0.0))
+                "file" -> {
+                    val sourceFile = File(sourceUri.path ?: error("مسار الملف المحلي غير صالح"))
+                    if (!sourceFile.isFile) error("ملف الفيديو المحلي غير موجود")
+                    sourceFile.inputStream().use { input ->
+                        FileOutputStream(partialFile).use { output -> input.copyTo(output) }
+                    }
+                    onProgress(DownloadProgress(100, partialFile.length() / 1_000_000.0, partialFile.length() / 1_000_000.0, 0.0))
+                }
+                "http", "https" -> downloadDirectMediaUrl(url, partialFile, requestHeaders, onProgress)
+                else -> error("مصدر الفيديو غير مدعوم")
             }
-            "http", "https" -> downloadDirectMediaUrl(url, videoFile, requestHeaders, onProgress)
-            else -> error("مصدر الفيديو غير مدعوم")
-        }
 
-        if (!videoFile.exists() || videoFile.length() == 0L) {
-            error("لم يتم تنزيل أي بيانات من الرابط")
+            if (!partialFile.isFile || partialFile.length() == 0L) {
+                error("لم يتم استيراد أي بيانات من ملف الفيديو")
+            }
+            if (!partialFile.renameTo(videoFile)) {
+                error("تعذر اعتماد ملف الفيديو المستورد؛ تحقق من مساحة التخزين المتاحة.")
+            }
+            return@withContext videoFile
+        } catch (error: Exception) {
+            partialFile.delete()
+            videoFile.delete()
+            throw error
         }
-
-        return@withContext videoFile
     }
 
     private suspend fun downloadDirectMediaUrl(
