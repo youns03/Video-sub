@@ -74,6 +74,19 @@ class SubVidLogicTest {
     }
 
     @Test
+    fun testSrtGeneratorRejectsInvalidSubtitleTiming() {
+        val invalid = listOf(
+            SubtitleSegment(1, 2000L, 1000L, "Bonjour", "مرحباً")
+        )
+        try {
+            SrtGenerator.buildSrtContent(invalid)
+            throw AssertionError("Invalid timing must not be exported")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message.orEmpty().contains("توقيت"))
+        }
+    }
+
+    @Test
     fun testArabicTranslator_PunctuationNormalization() {
         val formatted = ArabicTranslator.formatArabicSubtitleText("كيف حالك اليوم? شكراً, نحن بخير")
         assertTrue(formatted.contains("؟"))
