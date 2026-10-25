@@ -280,7 +280,7 @@ fun PipelineScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "اكتملت المعالجة: خيارات التحميل والدمج",
+                                    text = "خيارات حفظ الملفات",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = EmeraldGreen
@@ -347,12 +347,12 @@ fun PipelineScreen(
                                     .height(46.dp)
                                     .testTag("merge_hardsub_button"),
                                 shape = RoundedCornerShape(12.dp),
-                                enabled = !isMergingHardsub
+                                enabled = false
                             ) {
                                 Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AmberWarning, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isMergingHardsub) "جاري دمج الترجمة..." else "حرق الترجمة داخل الفيديو (غير متاح حالياً)",
+                                    text = "حرق الترجمة داخل الفيديو غير متاح في هذه النسخة",
                                     fontWeight = FontWeight.Bold
                                 )
                             }
