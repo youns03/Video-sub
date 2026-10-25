@@ -89,7 +89,7 @@ object SrtGenerator {
             putExtra(Intent.EXTRA_TEXT, "ملف ترجمة بصيغة SRT متزامن مع الفيديو: $title")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة ملف الترجمة SRT"))
+        context.startActivity(Intent.createChooser(intent, "مشاركة ملف الترجمة SRT").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /**
