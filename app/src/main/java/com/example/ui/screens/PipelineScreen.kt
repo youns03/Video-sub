@@ -323,7 +323,7 @@ fun PipelineScreen(
                             }
 
                             Text(
-                                text = "تم تجهيز ملف الفيديو. لا يُعد التفريغ والترجمة مكتملين إلا بعد تشغيل المحركات الحقيقية والتحقق من النتائج.",
+                                text = "اكتمل التفريغ المحلي والترجمة عبر DeepL. راجع النص والتوقيتات قبل حفظ ملف SRT؛ حفظ الفيديو يحتفظ بالمصدر الأصلي دون تغيير الدقة.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
