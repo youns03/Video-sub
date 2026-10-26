@@ -35,25 +35,42 @@ object DeepLTranslator {
     }
 
     private fun requestBatch(store: DeepLSettingsStore, texts: List<String>): List<String> {
+        var lastAuthError: IOException? = null
+        for (baseUrl in store.baseUrls()) {
+            try {
+                return requestBatchAt(baseUrl, store.apiKey(), texts)
+            } catch (error: IOException) {
+                if (!error.message.orEmpty().contains("AUTH_RETRY")) throw error
+                lastAuthError = error
+            }
+        }
+        val detail = lastAuthError?.message.orEmpty().removePrefix("AUTH_RETRY:").trim()
+        throw IOException("تعذر مصادقة مفتاح DeepL بعد تجربة عنواني الخطة المجانية والمدفوعة. $detail")
+    }
+
+    private fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>): List<String> {
         val form = FormBody.Builder()
-            .add("auth_key", store.apiKey())
+            .add("auth_key", apiKey)
             .add("source_lang", "FR")
             .add("target_lang", "AR")
         texts.forEach { form.add("text", it) }
         val request = Request.Builder()
-            .url(store.baseUrl() + "/v2/translate")
+            .url(baseUrl + "/v2/translate")
             .post(form.build())
             .header("User-Agent", "SubVid/1.0")
             .build()
         client.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
+                val apiMessage = runCatching { JSONObject(body).optString("message") }.getOrNull().orEmpty()
+                if (response.code == 403 || response.code == 456) {
+                    throw IOException("AUTH_RETRY:${apiMessage.ifBlank { "فشل التحقق من المفتاح أو الخطة." }}")
+                }
                 val message = when (response.code) {
-                    400, 403 -> "مفتاح DeepL غير صحيح أو غير صالح لهذه الخطة."
-                    456 -> "تم تجاوز حد استخدام DeepL أو رصيد الحساب."
+                    400 -> "طلب DeepL غير صالح: ${apiMessage.ifBlank { "تحقق من البيانات." }}"
                     429 -> "طلبات DeepL كثيرة مؤقتًا؛ أعد المحاولة بعد قليل."
                     in 500..599 -> "خادم DeepL غير متاح حاليًا."
-                    else -> "فشل DeepL برمز HTTP ${response.code}."
+                    else -> "فشل DeepL برمز HTTP ${response.code}: ${apiMessage.ifBlank { "خطأ غير معروف." }}"
                 }
                 throw IOException(message)
             }

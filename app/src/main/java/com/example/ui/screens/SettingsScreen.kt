@@ -86,6 +86,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 )
                 Text("الخطة / عنوان الخدمة", style = MaterialTheme.typography.labelLarge)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row { RadioButton(plan == DeepLSettingsStore.Plan.AUTO, { plan = DeepLSettingsStore.Plan.AUTO }); Text("تلقائي", Modifier.padding(top = 12.dp)) }
                     Row { RadioButton(plan == DeepLSettingsStore.Plan.FREE, { plan = DeepLSettingsStore.Plan.FREE }); Text("مجانية api-free", Modifier.padding(top = 12.dp)) }
                     Row { RadioButton(plan == DeepLSettingsStore.Plan.PRO, { plan = DeepLSettingsStore.Plan.PRO }); Text("مدفوعة api", Modifier.padding(top = 12.dp)) }
                 }

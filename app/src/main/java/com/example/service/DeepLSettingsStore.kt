@@ -11,14 +11,14 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class DeepLSettingsStore(context: Context) {
-    enum class Plan { FREE, PRO }
+    enum class Plan { AUTO, FREE, PRO }
 
     data class Settings(val plan: Plan, val hasApiKey: Boolean)
 
     private val prefs = context.getSharedPreferences("deepl_secure_settings", Context.MODE_PRIVATE)
 
     fun read(): Settings = Settings(
-        plan = runCatching { Plan.valueOf(prefs.getString("plan", Plan.FREE.name)!!) }.getOrDefault(Plan.FREE),
+        plan = runCatching { Plan.valueOf(prefs.getString("plan", Plan.AUTO.name)!!) }.getOrDefault(Plan.AUTO),
         hasApiKey = prefs.contains("api_key_cipher")
     )
 
@@ -41,9 +41,14 @@ class DeepLSettingsStore(context: Context) {
         return decrypt(encoded)
     }
 
-    internal fun baseUrl(): String = when (read().plan) {
-        Plan.FREE -> "https://api-free.deepl.com"
-        Plan.PRO -> "https://api.deepl.com"
+    internal fun baseUrls(): List<String> = when (read().plan) {
+        Plan.FREE -> listOf("https://api-free.deepl.com", "https://api.deepl.com")
+        Plan.PRO -> listOf("https://api.deepl.com", "https://api-free.deepl.com")
+        Plan.AUTO -> if (apiKey().endsWith(":fx", ignoreCase = true)) {
+            listOf("https://api-free.deepl.com", "https://api.deepl.com")
+        } else {
+            listOf("https://api.deepl.com", "https://api-free.deepl.com")
+        }
     }
 
     private fun key(): SecretKey {
