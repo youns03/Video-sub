@@ -25,7 +25,7 @@ class VideoProcessingPipeline(private val context: Context) {
      * Local-file processing pipeline.
      * - Validates a picked local video and reads its real metadata.
      * - Copies the original file without transcoding.
-     * - Downloads a pinned local Whisper base model and transcribes speech on-device.
+     * - Downloads the selected local Whisper INT8 model and transcribes speech on-device.
      * - Translation uses an online machine-translation service and must be reviewed.
      * - SRT export validates text and timeline before writing.
      */
@@ -35,6 +35,8 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged: suspend (PipelineStage, Int, String) -> Unit = { _, _, _ -> }
     ): VideoProject {
         val id = UUID.randomUUID().toString()
+        // Pin the model choice for this whole job so settings changes cannot swap models mid-run.
+        val selectedWhisperModel = WhisperModelManager.selectedModel(context)
 
         // Local video imports bypass URL validation and never contact an external service.
         val sourceUri = runCatching { Uri.parse(inputUrl) }.getOrNull()
@@ -234,7 +236,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
 
         try {
-            WhisperModelManager.ensureModel(context) { percent, message ->
+            WhisperModelManager.ensureModel(context, selectedWhisperModel) { percent, message ->
                 val modelProgress = 48 + (percent * 10 / 100)
                 _currentProject.value = _currentProject.value?.copy(
                     progressPercent = modelProgress,
@@ -261,7 +263,8 @@ class VideoProcessingPipeline(private val context: Context) {
             FrenchSTTEngine.transcribe(
                 context = context,
                 mediaPath = downloadedFile.absolutePath,
-                durationSeconds = copiedDurationSeconds
+                durationSeconds = copiedDurationSeconds,
+                modelSize = selectedWhisperModel
             ) { p, text ->
                 val calcProgress = 58 + (p * 12 / 100)
                 _currentProject.value = _currentProject.value?.copy(
