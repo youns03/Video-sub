@@ -14,16 +14,17 @@ object FrenchSTTEngine {
     const val PAUSE_BETWEEN_CUES_MS = 120L
 
     @Volatile
-    var backendFactory: ((Context) -> SpeechBackend)? = null
+    var backendFactory: ((Context, WhisperModelManager.ModelSize) -> SpeechBackend)? = null
 
     suspend fun transcribe(
         context: Context,
         mediaPath: String,
         durationSeconds: Int,
+        modelSize: WhisperModelManager.ModelSize = WhisperModelManager.selectedModel(context),
         onProgress: suspend (progress: Int, currentSegmentText: String) -> Unit
     ): List<SubtitleSegment> = transcribe(
         source = { onChunk -> AudioDecoder.decode(mediaPath, onChunk) },
-        openBackend = { backendFactory?.invoke(context) },
+        openBackend = { backendFactory?.invoke(context, modelSize) },
         durationSeconds = durationSeconds,
         onProgress = onProgress
     )
