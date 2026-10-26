@@ -21,6 +21,7 @@ android {
     versionName = "1.0"
     buildConfigField("String", "EXTRACTOR_BASE_URL", "\"${extractorBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
+    ndk { abiFilters += "arm64-v8a" }
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -126,6 +127,7 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.8")
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
