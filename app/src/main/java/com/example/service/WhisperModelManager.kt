@@ -52,7 +52,7 @@ object WhisperModelManager {
                 110_000_000L, 140_000_000L),
             ModelFile("base-tokens.txt",
                 "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + BASE_REVISION + "/base-tokens.txt",
-                null, 750_000L, 900_000L)
+                "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126", 800_000L, 850_000L)
         )
         ModelSize.TINY -> listOf(
             ModelFile("tiny-encoder.int8.onnx",
