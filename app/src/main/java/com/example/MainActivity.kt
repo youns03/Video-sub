@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.service.SherpaWhisperBackend
 import com.example.ui.MainViewModel
 import com.example.ui.screens.EditorScreen
 import com.example.ui.screens.HistoryScreen
@@ -55,6 +56,7 @@ import com.example.ui.theme.PrimaryBlue
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SherpaWhisperBackend.install()
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -214,6 +216,7 @@ fun SubVidMainApp(viewModel: MainViewModel = viewModel()) {
                                 viewModel.startPipeline(url, preset)
                             },
                             onRetryPipeline = { viewModel.retryPipeline() },
+                            onRetryTranslation = { viewModel.retryTranslation() },
                             onNavigateToEditor = { viewModel.setSelectedTab(1) },
                             onDownloadSrt = { viewModel.downloadSrtFile() },
                             onDownload360pVideo = { viewModel.download360pVideo() },
