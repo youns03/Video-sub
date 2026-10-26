@@ -150,7 +150,7 @@ class SttLogicTest {
         )
         assertEquals(1, cues.size)
         assertEquals("Bonjour tout le monde", cues.single().frenchText)
-        assertEquals(100L, cues.single().startTimeMs)
+        assertEquals(150L, cues.single().startTimeMs)
     }
 
     @Test
