@@ -3,6 +3,14 @@ package com.example.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.net.Uri
+import android.widget.VideoView
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.delay
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,16 +69,35 @@ fun VideoPlayerPreview(
     isPlaying: Boolean,
     onPlayPauseToggle: () -> Unit,
     onSeekTo: (Long) -> Unit,
+    onPlaybackPositionChanged: (Long) -> Unit,
+    onPlaybackEnded: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val totalDurationMs = (project.durationSeconds * 1000L).coerceAtLeast(1000L)
+    val context = LocalContext.current
+    val videoPath = project.localVideoPath
+    var videoView by remember { mutableStateOf<VideoView?>(null) }
+    var playerError by remember(videoPath) { mutableStateOf<String?>(null) }
 
-    // Find the currently active subtitle based on timestamp
+    DisposableEffect(videoPath, videoView) {
+        onDispose { videoView?.stopPlayback() }
+    }
+
+    LaunchedEffect(videoView, isPlaying, videoPath) {
+        if (isPlaying) {
+            while (true) {
+                delay(200)
+                val player = videoView ?: continue
+                if (player.isPlaying) onPlaybackPositionChanged(player.currentPosition.toLong())
+            }
+        }
+    }
+
+    // Find the currently active subtitle based on the real playback timestamp
     val activeSegment = project.segments.find {
         currentPositionMs >= it.startTimeMs && currentPositionMs <= it.endTimeMs
     }
 
-    var showControls by remember { mutableStateOf(true) }
     var subtitleFontSize by remember { mutableStateOf(16.sp) }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -88,31 +115,79 @@ fun VideoPlayerPreview(
                         )
                     )
                 )
-                .clickable { showControls = !showControls }
                 .testTag("video_player_box"),
             contentAlignment = Alignment.Center
         ) {
-            // Simulated Video Visualizer / Canvas Graphic
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.Subtitles,
-                    contentDescription = null,
-                    tint = PrimaryBlue.copy(alpha = 0.25f),
-                    modifier = Modifier.size(54.dp)
+            // Real Android video playback; subtitle timing follows VideoView's actual position.
+            if (!videoPath.isNullOrBlank()) {
+                AndroidView(
+                    factory = { viewContext ->
+                        VideoView(viewContext).apply {
+                            tag = videoPath
+                            setBackgroundColor(android.graphics.Color.BLACK)
+                            setVideoURI(Uri.fromFile(File(videoPath)))
+                            setOnPreparedListener { mediaPlayer ->
+                                mediaPlayer.isLooping = false
+                                playerError = null
+                                if (isPlaying) start()
+                            }
+                            setOnCompletionListener { onPlaybackEnded() }
+                            setOnErrorListener { _, _, _ ->
+                                playerError = "تعذر تشغيل هذا الفيديو؛ قد يكون تنسيقه أو ترميزه غير مدعوم على الهاتف."
+                                true
+                            }
+                            videoView = this
+                        }
+                    },
+                    update = { player ->
+                        videoView = player
+                        if (player.tag != videoPath) {
+                            player.tag = videoPath
+                            playerError = null
+                            player.setVideoURI(Uri.fromFile(File(videoPath)))
+                        }
+                        if (isPlaying) {
+                            if (!player.isPlaying) player.start()
+                        } else if (player.isPlaying) {
+                            player.pause()
+                        }
+                        if (kotlin.math.abs(player.currentPosition.toLong() - currentPositionMs) > 800L) {
+                            player.seekTo(currentPositionMs.coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = project.title,
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 13.sp,
-                    maxLines = 1
-                )
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.Subtitles,
+                        contentDescription = null,
+                        tint = PrimaryBlue.copy(alpha = 0.25f),
+                        modifier = Modifier.size(54.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(project.title, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, maxLines = 1)
+                    Text(
+                        "ملف الفيديو الأصلي غير متاح؛ يمكنك مع ذلك تعديل نصوص الترجمة.",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            if (playerError != null) {
+                Box(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                        .clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.8f))
+                        .padding(12.dp)
+                ) {
+                    Text(playerError.orEmpty(), color = Color.White, fontSize = 12.sp, textAlign = TextAlign.Center)
+                }
             }
 
             // Synced Arabic Subtitle Overlay (positioned at lower-third)
@@ -120,7 +195,7 @@ fun VideoPlayerPreview(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(bottom = if (showControls) 54.dp else 16.dp, start = 16.dp, end = 16.dp),
+                    .padding(bottom = 54.dp, start = 16.dp, end = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (activeSegment != null) {
@@ -146,7 +221,7 @@ fun VideoPlayerPreview(
 
             // Player Overlay Controls
             AnimatedVisibility(
-                visible = showControls,
+                visible = true,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.fillMaxSize()
