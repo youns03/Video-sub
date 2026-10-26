@@ -83,17 +83,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             pausePlayback()
             _playbackPositionMs.value = 0L
-            val finishedProject = pipeline.processVideo(
-                inputUrl = url,
-                presetSample = preset
-            )
+            val finishedProject = try {
+                pipeline.processVideo(inputUrl = url, presetSample = preset)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _statusNotice.value = error.message ?: "تعذرت معالجة الفيديو بسبب خطأ غير متوقع."
+                return@launch
+            }
             if (finishedProject.isCompleted ||
                 (finishedProject.localVideoPath != null && finishedProject.segments.isNotEmpty())) {
-                projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(finishedProject))
-                _statusNotice.value = if (finishedProject.isCompleted) {
-                    "اكتملت المعالجة وحُفظ المشروع."
-                } else {
-                    "حُفظ النص الفرنسي وتوقيتاته؛ يمكنك إعادة الترجمة دون إعادة التفريغ."
+                val saved = persistProjectSafely(
+                    finishedProject,
+                    "انتهت المعالجة، لكن تعذر حفظ المشروع في السجل."
+                )
+                if (saved) {
+                    _statusNotice.value = if (finishedProject.isCompleted) {
+                        "اكتملت المعالجة وحُفظ المشروع."
+                    } else {
+                        "حُفظ النص الفرنسي وتوقيتاته؛ يمكنك إعادة الترجمة دون إعادة التفريغ."
+                    }
                 }
             }
         }
@@ -137,8 +146,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             errorMessage = error.message ?: "فشل الاتصال بخدمة الترجمة."
                         )
                         pipeline.updateProject(working)
-                        projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(working))
-                        _statusNotice.value = "حُفظ التفريغ الفرنسي. أعد المحاولة لاحقًا دون إعادة التفريغ."
+                        if (persistProjectSafely(working, "تعذر حفظ التفريغ الفرنسي في السجل.")) {
+                            _statusNotice.value = "حُفظ التفريغ الفرنسي. أعد المحاولة لاحقًا دون إعادة التفريغ."
+                        }
                         return@launch
                     }
                 }
@@ -158,8 +168,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 errorMessage = null
             )
             pipeline.updateProject(completed)
-            projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(completed))
-            _statusNotice.value = "اكتملت الترجمة وحُفظ المشروع."
+            if (persistProjectSafely(completed, "اكتملت الترجمة، لكن تعذر حفظ المشروع في السجل.")) {
+                _statusNotice.value = "اكتملت الترجمة وحُفظ المشروع."
+            }
         }
     }
 
@@ -219,8 +230,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val updatedProject = current.copy(segments = updatedSegments)
                 pipeline.updateProject(updatedProject)
-                saveProjectToDb(updatedProject)
-                _statusNotice.value = "تم تحديث الترجمة."
+                if (persistProjectSafely(updatedProject, "تم تحديث الترجمة، لكن تعذر حفظ المشروع.")) {
+                    _statusNotice.value = "تم تحديث الترجمة."
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -329,27 +341,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteProject(projectId: String) {
         viewModelScope.launch {
-            projectDao.deleteById(projectId)
-            if (currentProject.value?.id == projectId) {
-                pipeline.updateProject(
-                    VideoProject(
-                        id = UUID.randomUUID().toString(),
-                        title = "",
-                        sourceUrl = "",
-                        platform = PlatformType.FACEBOOK,
-                        durationSeconds = 0,
-                        currentStage = PipelineStage.IDLE
+            try {
+                projectDao.deleteById(projectId)
+                if (currentProject.value?.id == projectId) {
+                    pipeline.updateProject(
+                        VideoProject(
+                            id = UUID.randomUUID().toString(),
+                            title = "",
+                            sourceUrl = "",
+                            platform = PlatformType.FACEBOOK,
+                            durationSeconds = 0,
+                            currentStage = PipelineStage.IDLE
+                        )
                     )
-                )
+                }
+                _statusNotice.value = "تم حذف المشروع."
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _statusNotice.value = error.message ?: "تعذر حذف المشروع من السجل."
             }
-            _statusNotice.value = "تم حذف المشروع."
         }
     }
 
 
+    private suspend fun persistProjectSafely(project: VideoProject, failureMessage: String): Boolean {
+        return try {
+            projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(project))
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            _statusNotice.value = error.message?.let { "$failureMessage $it" } ?: failureMessage
+            false
+        }
+    }
+
     private fun saveProjectToDb(project: VideoProject) {
         viewModelScope.launch {
-            projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(project))
+            persistProjectSafely(project, "تعذر حفظ التعديلات في السجل.")
         }
     }
 
