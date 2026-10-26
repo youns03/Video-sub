@@ -139,7 +139,7 @@ class VideoProcessingPipeline(private val context: Context) {
         val downloadedFile: File = try {
             val existingAppCopy = if (sourceUri?.scheme.equals("file", ignoreCase = true)) {
                 runCatching {
-                    val candidate = File(sourceUri.path ?: "")
+                    val candidate = File(sourceUri?.path ?: "")
                     val appOwnedDirectory = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
                         ?.let { File(it, "SubVid").canonicalFile }
                     candidate.takeIf {
@@ -232,7 +232,11 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
 
         val rawFrenchSegments: List<SubtitleSegment> = try {
-            FrenchSTTEngine.transcribeAudioWithStudioStandards(estimatedDuration) { p, text ->
+            FrenchSTTEngine.transcribe(
+                context = context,
+                mediaPath = downloadedFile.absolutePath,
+                durationSeconds = copiedDurationSeconds
+            ) { p, text ->
                 val calcProgress = 48 + (p * 22 / 100)
                 _currentProject.value = _currentProject.value?.copy(
                     progressPercent = calcProgress,
