@@ -116,8 +116,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("نماذج Whisper", style = MaterialTheme.typography.titleLarge)
-                Text(WhisperModelManager.modelDisplayName())
+                Text("نموذج Whisper المتوافق", style = MaterialTheme.typography.titleLarge)
+                Text("النموذج المتاح حاليًا: ${WhisperModelManager.modelDisplayName()}")
                 Text("الحجم التقريبي: ${WhisperModelManager.modelApproximateSizeMb()} MB — المساحة المتاحة: ${WhisperModelManager.availableFreeMb(context)} MB")
                 Text(if (modelReady) "الحالة: مكتمل ومتحقق" else "الحالة: غير منزّل")
                 if (busy && modelProgress > 0) LinearProgressIndicator(progress = { modelProgress / 100f }, Modifier.fillMaxWidth())

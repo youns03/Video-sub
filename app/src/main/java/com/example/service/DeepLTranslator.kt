@@ -63,7 +63,10 @@ object DeepLTranslator {
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 val apiMessage = runCatching { JSONObject(body).optString("message") }.getOrNull().orEmpty()
-                if (response.code == 403 || response.code == 456) {
+                if (response.code == 456) {
+                    throw IOException("تم تجاوز حصة DeepL أو رصيد الحساب. ${apiMessage.ifBlank { "تحقق من رصيد الحساب وحد الاستخدام." }}")
+                }
+                if (response.code == 403) {
                     throw IOException("AUTH_RETRY:${apiMessage.ifBlank { "فشل التحقق من المفتاح أو الخطة." }}")
                 }
                 val message = when (response.code) {
