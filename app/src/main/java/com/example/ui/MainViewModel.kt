@@ -13,6 +13,7 @@ import com.example.data.model.PresetSamples
 import com.example.data.model.SubtitleSegment
 import com.example.data.model.VideoProject
 import com.example.service.ArabicTranslator
+import com.example.service.DeepLTranslator
 import com.example.service.SrtGenerator
 import com.example.service.VideoDownloaderService
 import com.example.service.VideoProcessingPipeline
