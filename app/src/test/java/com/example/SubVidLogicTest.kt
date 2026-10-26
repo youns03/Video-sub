@@ -101,7 +101,7 @@ class SubVidLogicTest {
             com.example.service.FrenchSTTEngine.transcribe(source, { null }, 30) { _, _ -> }
             throw AssertionError("Transcription must not return fabricated dialogue")
         } catch (error: IOException) {
-            assertTrue(error.message.orEmpty().contains("غير مدمج"))
+            assertTrue(error.message.orEmpty().contains("غير جاهز"))
         }
     }
 
