@@ -7,7 +7,6 @@ import android.net.Uri
 import android.widget.VideoView
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import java.io.File
@@ -74,7 +73,6 @@ fun VideoPlayerPreview(
     modifier: Modifier = Modifier
 ) {
     val totalDurationMs = (project.durationSeconds * 1000L).coerceAtLeast(1000L)
-    val context = LocalContext.current
     val videoPath = project.localVideoPath
     var videoView by remember { mutableStateOf<VideoView?>(null) }
     var playerError by remember(videoPath) { mutableStateOf<String?>(null) }
