@@ -132,6 +132,7 @@ fun VideoPlayerPreview(
                             setOnCompletionListener { onPlaybackEnded() }
                             setOnErrorListener { _, _, _ ->
                                 playerError = "تعذر تشغيل هذا الفيديو؛ قد يكون تنسيقه أو ترميزه غير مدعوم على الهاتف."
+                                onPlaybackEnded()
                                 true
                             }
                             videoView = this
@@ -225,9 +226,7 @@ fun VideoPlayerPreview(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.45f))
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     // Center Playback Buttons
                     Row(
