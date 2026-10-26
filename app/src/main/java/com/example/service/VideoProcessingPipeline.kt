@@ -318,38 +318,29 @@ class VideoProcessingPipeline(private val context: Context) {
         _currentProject.value = project
         onStageChanged(PipelineStage.TRANSLATING_AR, 74, project.statusMessage)
 
-        val translatedSegments = mutableListOf<SubtitleSegment>()
-        for ((index, segment) in rawFrenchSegments.withIndex()) {
-            val arabic = try {
-                ArabicTranslator.translateFrenchToArabic(segment.frenchText)
-            } catch (error: Exception) {
-                val message = error.message ?: "تعذرت ترجمة المقطع ${index + 1}."
-                val failedProject = project.copy(
-                    segments = rawFrenchSegments.mapIndexed { rawIndex, rawSegment ->
-                        rawSegment.copy(arabicText = translatedSegments.getOrNull(rawIndex)?.arabicText.orEmpty())
-                    },
-                    currentStage = PipelineStage.ERROR,
-                    progressPercent = project.progressPercent,
-                    statusMessage = message,
-                    errorMessage = message
+        val translatedSegments: List<SubtitleSegment> = try {
+            val arabicTexts = DeepLTranslator.translate(context, rawFrenchSegments.map { it.frenchText })
+            if (arabicTexts.size != rawFrenchSegments.size) throw java.io.IOException("لم تُرجع DeepL ترجمة لكل المقاطع.")
+            rawFrenchSegments.mapIndexed { index, segment ->
+                project = project.copy(
+                    progressPercent = 74 + ((index + 1) * 16 / rawFrenchSegments.size),
+                    statusMessage = "ترجمة المقطع ${index + 1} من ${rawFrenchSegments.size}؛ التوقيت الأصلي محفوظ."
                 )
-                _currentProject.value = failedProject
-                onStageChanged(PipelineStage.ERROR, project.progressPercent, message)
-                return failedProject
+                _currentProject.value = project
+                segment.copy(arabicText = arabicTexts[index])
             }
-            translatedSegments.add(
-                segment.copy(
-                    arabicText = arabic,
-                    startTimeMs = segment.startTimeMs,
-                    endTimeMs = segment.endTimeMs
-                )
+        } catch (error: Exception) {
+            val message = error.message ?: "تعذرت ترجمة المقاطع عبر DeepL."
+            val failedProject = project.copy(
+                segments = rawFrenchSegments,
+                currentStage = PipelineStage.ERROR,
+                progressPercent = project.progressPercent,
+                statusMessage = message,
+                errorMessage = message
             )
-            val transProgress = 74 + ((index + 1) * 16 / rawFrenchSegments.size)
-            project = project.copy(
-                progressPercent = transProgress,
-                statusMessage = "ترجمة المقطع ${index + 1} من ${rawFrenchSegments.size}؛ التوقيت الأصلي محفوظ."
-            )
-            _currentProject.value = project
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, project.progressPercent, message)
+            return failedProject
         }
 
         project = project.copy(

@@ -44,11 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.service.SherpaWhisperBackend
+import com.example.service.ArabicTranslator
 import com.example.ui.MainViewModel
 import com.example.ui.screens.EditorScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.PipelineScreen
-import com.example.ui.screens.TechnicalReportScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.PrimaryBlue
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SherpaWhisperBackend.install()
+        ArabicTranslator.initialize(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -182,11 +184,11 @@ fun SubVidMainApp(viewModel: MainViewModel = viewModel()) {
                         icon = {
                             Icon(
                                 Icons.Default.Article,
-                                contentDescription = "التقرير التقني",
+                                contentDescription = "الإعدادات",
                                 modifier = Modifier.size(24.dp)
                             )
                         },
-                        label = { Text("التقرير التقني", fontSize = 12.sp) },
+                        label = { Text("الإعدادات", fontSize = 12.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = PrimaryBlue,
                             selectedTextColor = PrimaryBlue,
@@ -248,7 +250,7 @@ fun SubVidMainApp(viewModel: MainViewModel = viewModel()) {
                             onDeleteProject = { viewModel.deleteProject(it) }
                         )
 
-                        3 -> TechnicalReportScreen()
+                        3 -> SettingsScreen()
                     }
                 }
             }
