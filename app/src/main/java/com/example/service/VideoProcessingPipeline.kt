@@ -267,6 +267,8 @@ class VideoProcessingPipeline(private val context: Context) {
                     statusMessage = "تفريغ الصوت: \"${text.take(35)}...\""
                 )
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
             val message = error.message ?: "تعذر تفريغ الصوت الفرنسي."
             val failedProject = project.copy(
