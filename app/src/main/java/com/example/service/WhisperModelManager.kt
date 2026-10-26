@@ -88,7 +88,7 @@ object WhisperModelManager {
 
     fun modelDir(context: Context): File = modelDir(context, selectedModel(context))
 
-    private fun modelDir(context: Context, model: ModelSize): File = File(context.filesDir, model.directory)
+    fun modelDir(context: Context, model: ModelSize): File = File(context.filesDir, model.directory)
 
     fun modelDisplayName(context: Context): String = selectedModel(context).displayName
 
@@ -113,9 +113,9 @@ object WhisperModelManager {
 
     suspend fun ensureModel(
         context: Context,
+        model: ModelSize = selectedModel(context),
         onProgress: suspend (percent: Int, message: String) -> Unit = { _, _ -> }
     ): File = withContext(Dispatchers.IO) {
-        val model = selectedModel(context)
         val dir = modelDir(context, model)
         val files = filesFor(model)
         if (!dir.exists() && !dir.mkdirs()) throw IOException("تعذر إنشاء مجلد نموذج التفريغ.")
