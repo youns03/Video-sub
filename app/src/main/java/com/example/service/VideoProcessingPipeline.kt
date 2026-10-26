@@ -226,7 +226,7 @@ class VideoProcessingPipeline(private val context: Context) {
         onStageChanged(PipelineStage.DOWNLOADING_VIDEO_360P, 40, project.statusMessage)
         delay(350)
 
-        // 3. Stage 3: French speech transcription; the real STT engine is not integrated yet
+        // 3. Stage 3: French speech transcription with the selected local Whisper model
         project = project.copy(
             currentStage = PipelineStage.EXTRACTING_SPEECH_FR,
             progressPercent = 48,
@@ -334,6 +334,8 @@ class VideoProcessingPipeline(private val context: Context) {
                 _currentProject.value = project
                 segment.copy(arabicText = arabicTexts[index])
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
             val message = error.message ?: "تعذرت ترجمة المقاطع عبر DeepL."
             val failedProject = project.copy(
