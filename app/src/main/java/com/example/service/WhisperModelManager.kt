@@ -47,7 +47,7 @@ object WhisperModelManager {
     fun modelDir(context: Context): File = File(context.filesDir, "stt/whisper")
     fun modelDisplayName(): String = "Whisper base INT8 + Silero VAD"
     fun modelApproximateSizeMb(): Int = 170
-    fun availableFreeMb(context: Context): Long = modelDir(context).usableSpace / 1_000_000L
+    fun availableFreeMb(context: Context): Long = context.filesDir.usableSpace / 1_000_000L
 
     fun isReady(context: Context): Boolean {
         val dir = modelDir(context)
