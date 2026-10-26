@@ -190,7 +190,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, isProcessing: Boolean = false)
                     RadioButton(
                         selected = selectedModel == WhisperModelManager.ModelSize.BASE,
                         onClick = { chooseModel(WhisperModelManager.ModelSize.BASE) },
-                        enabled = !busy
+                        enabled = !busy && !isProcessing
                     )
                     Text("Base INT8 — نحو 170 MB، دقة أفضل غالبًا", Modifier.padding(top = 12.dp))
                 }
