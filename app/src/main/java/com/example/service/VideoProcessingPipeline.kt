@@ -299,7 +299,9 @@ class VideoProcessingPipeline(private val context: Context) {
             } catch (error: Exception) {
                 val message = error.message ?: "تعذرت ترجمة المقطع ${index + 1}."
                 val failedProject = project.copy(
-                    segments = translatedSegments.toList(),
+                    segments = rawFrenchSegments.mapIndexed { rawIndex, rawSegment ->
+                        rawSegment.copy(arabicText = translatedSegments.getOrNull(rawIndex)?.arabicText.orEmpty())
+                    },
                     currentStage = PipelineStage.ERROR,
                     progressPercent = project.progressPercent,
                     statusMessage = message,
