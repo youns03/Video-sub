@@ -48,7 +48,7 @@ object DeepLTranslator {
         throw IOException("تعذر مصادقة مفتاح DeepL بعد تجربة عنواني الخطة المجانية والمدفوعة. $detail")
     }
 
-    private fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>): List<String> {
+    internal fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>): List<String> {
         val form = FormBody.Builder()
             .add("source_lang", "FR")
             .add("target_lang", "AR")
