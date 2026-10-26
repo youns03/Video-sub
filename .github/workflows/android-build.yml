@@ -75,7 +75,7 @@ jobs:
           key: subvid-debug-keystore-v1
 
       - name: Build debug APK
-        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
+        run: ./gradlew testDebugUnitTest assembleDebug assemblePreview --no-daemon
 
       - name: Remove previous APK artifacts to free storage quota
         uses: actions/github-script@v7
@@ -103,3 +103,11 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 2
+
+      - name: Upload side-by-side preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SubVid-preview-APK
+          path: app/build/outputs/apk/preview/app-preview.apk
+          if-no-files-found: error
+          retention-days: 7
