@@ -31,6 +31,10 @@ class DeepLSettingsStore(context: Context) {
             .apply()
     }
 
+    fun savePlan(plan: Plan) {
+        prefs.edit().putString("plan", plan.name).apply()
+    }
+
     fun clearApiKey() {
         prefs.edit().remove("api_key_cipher").apply()
     }
