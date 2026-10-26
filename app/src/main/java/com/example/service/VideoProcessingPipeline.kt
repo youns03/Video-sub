@@ -25,7 +25,7 @@ class VideoProcessingPipeline(private val context: Context) {
      * Local-file processing pipeline.
      * - Validates a picked local video and reads its real metadata.
      * - Copies the original file without transcoding.
-     * - Fails closed at speech transcription until a real STT engine is integrated.
+     * - Downloads a pinned local Whisper base model and transcribes speech on-device.
      * - Translation uses an online machine-translation service and must be reviewed.
      * - SRT export validates text and timeline before writing.
      */
@@ -240,6 +240,8 @@ class VideoProcessingPipeline(private val context: Context) {
                 )
                 onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, modelProgress, message)
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
             val message = error.message ?: "تعذر تجهيز نموذج التفريغ المحلي."
             val failedProject = project.copy(
