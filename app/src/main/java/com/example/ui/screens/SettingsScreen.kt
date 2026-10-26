@@ -32,7 +32,10 @@ import androidx.compose.ui.unit.dp
 import com.example.service.DeepLSettingsStore
 import com.example.service.DeepLTranslator
 import com.example.service.WhisperModelManager
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
@@ -43,6 +46,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var apiKey by remember { mutableStateOf("") }
     var status by remember { mutableStateOf(if (store.read().hasApiKey) "مفتاح محفوظ بأمان" else "لم يتم ضبط المفتاح") }
     var busy by remember { mutableStateOf(false) }
+    var downloadingModel by remember { mutableStateOf(false) }
     var modelReady by remember { mutableStateOf(WhisperModelManager.isReady(context)) }
     var modelProgress by remember { mutableStateOf(0) }
     var modelMessage by remember { mutableStateOf("") }
@@ -56,8 +60,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
-                    modelReady = !WhisperModelManager.deleteModel(context)
-                    modelMessage = if (modelReady) "تعذر حذف النموذج." else "تم حذف النموذج."
+                    busy = true
+                    scope.launch {
+                        try {
+                            val deleted = withContext(Dispatchers.IO) { WhisperModelManager.deleteModel(context) }
+                            modelReady = !deleted
+                            modelMessage = if (deleted) "تم حذف النموذج." else "تعذر حذف النموذج."
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            modelMessage = "تعذر حذف النموذج: ${error.message ?: "خطأ غير معروف."}"
+                        } finally {
+                            busy = false
+                        }
+                    }
                 }) { Text("حذف") }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("إلغاء") } }
@@ -94,19 +110,45 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Button(enabled = apiKey.isNotBlank() && !busy, onClick = {
                         busy = true
                         status = "جارٍ حفظ المفتاح واختبار الاتصال..."
-                        store.save(plan, apiKey)
                         scope.launch {
-                            status = runCatching { "نجح الاتصال: ${DeepLTranslator.testConnection(context)}" }
-                                .getOrElse { it.message ?: "فشل اتصال DeepL" }
-                            busy = false
+                            try {
+                                store.save(plan, apiKey)
+                                status = try {
+                                    "نجح الاتصال: ${DeepLTranslator.testConnection(context)}"
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    "حُفظ المفتاح، لكن فشل اختبار الاتصال: ${error.message ?: "تعذر الاتصال بـ DeepL."}"
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                status = "تعذر حفظ الإعدادات: ${error.message ?: "خطأ غير معروف."}"
+                            } finally {
+                                busy = false
+                            }
                         }
                     }) { Text("حفظ واختبار") }
                     OutlinedButton(enabled = store.read().hasApiKey && !busy, onClick = {
                         busy = true
+                        status = "جارٍ اختبار الاتصال..."
                         scope.launch {
-                            status = runCatching { "نجح الاتصال: ${DeepLTranslator.testConnection(context)}" }
-                                .getOrElse { it.message ?: "فشل اتصال DeepL" }
-                            busy = false
+                            try {
+                                store.savePlan(plan)
+                                status = try {
+                                    "نجح الاتصال: ${DeepLTranslator.testConnection(context)}"
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    "فشل اختبار الاتصال: ${error.message ?: "تعذر الاتصال بـ DeepL."}"
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                status = "تعذر حفظ الإعدادات: ${error.message ?: "خطأ غير معروف."}"
+                            } finally {
+                                busy = false
+                            }
                         }
                     }) { Text("اختبار فقط") }
                 }
@@ -120,21 +162,31 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 Text("النموذج المتاح حاليًا: ${WhisperModelManager.modelDisplayName()}")
                 Text("الحجم التقريبي: ${WhisperModelManager.modelApproximateSizeMb()} MB — المساحة المتاحة: ${WhisperModelManager.availableFreeMb(context)} MB")
                 Text(if (modelReady) "الحالة: مكتمل ومتحقق" else "الحالة: غير منزّل")
-                if (busy && modelProgress > 0) LinearProgressIndicator(progress = { modelProgress / 100f }, Modifier.fillMaxWidth())
+                if (downloadingModel && modelProgress > 0) LinearProgressIndicator(progress = { modelProgress / 100f }, Modifier.fillMaxWidth())
                 if (modelMessage.isNotBlank()) Text(modelMessage)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy && !modelReady, onClick = {
                         busy = true
+                        downloadingModel = true
                         modelProgress = 0
+                        modelMessage = "جارٍ بدء تنزيل النموذج..."
                         scope.launch {
-                            runCatching {
+                            try {
                                 WhisperModelManager.ensureModel(context) { progress, message ->
-                                    modelProgress = progress
-                                    modelMessage = message
+                                    withContext(Dispatchers.Main.immediate) {
+                                        modelProgress = progress
+                                        modelMessage = message
+                                    }
                                 }
                                 modelReady = true
-                            }.onFailure { modelMessage = it.message ?: "فشل تنزيل النموذج" }
-                            busy = false
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                modelMessage = error.message ?: "فشل تنزيل النموذج؛ تحقق من الاتصال والمساحة ثم أعد المحاولة."
+                            } finally {
+                                busy = false
+                                downloadingModel = false
+                            }
                         }
                     }) { Text(if (modelReady) "تم التنزيل" else "تنزيل النموذج") }
                     OutlinedButton(enabled = !busy && modelReady, onClick = { confirmDelete = true }) { Text("حذف") }
