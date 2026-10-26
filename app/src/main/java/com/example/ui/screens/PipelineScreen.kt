@@ -84,6 +84,7 @@ fun PipelineScreen(
     onUrlChange: (String) -> Unit,
     onStartPipeline: (url: String, preset: PresetSample?) -> Unit,
     onRetryPipeline: () -> Unit,
+    onRetryTranslation: () -> Unit,
     onNavigateToEditor: () -> Unit,
     onDownloadSrt: () -> Unit,
     onDownload360pVideo: () -> Unit,
@@ -229,7 +230,7 @@ fun PipelineScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "تنبيه: استيراد الفيديو والتحقق من ملفه يعملان، لكن محرك التفريغ الصوتي الحقيقي غير مدمج بعد؛ لذلك ستتوقف المعالجة عند هذه المرحلة ولن تُنشأ ترجمة تخمينية.",
+                            text = "في أول استخدام، ينزّل التطبيق نموذج Whisper base بحجم يقارب 160 MB. بعد ذلك يبقى التفريغ محليًا؛ يُرسل النص الفرنسي فقط إلى الإنترنت للترجمة العربية، ولا يُرفع الفيديو أو الصوت.",
                             style = MaterialTheme.typography.bodySmall,
                             color = AmberWarning
                         )
@@ -259,6 +260,19 @@ fun PipelineScreen(
                         project = currentProject,
                         onRetry = onRetryPipeline
                     )
+                }
+            }
+
+            if (currentProject != null && currentProject.segments.isNotEmpty() &&
+                currentProject.segments.any { it.arabicText.isBlank() }) {
+                item {
+                    OutlinedButton(
+                        onClick = onRetryTranslation,
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("إعادة الترجمة فقط دون إعادة تفريغ الصوت", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
