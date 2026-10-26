@@ -117,7 +117,7 @@ object WhisperModelManager {
         }
         try {
             val code = connection.responseCode
-            if (code == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE && existing > 0L) {
+            if (code == 416 && existing > 0L) {
                 connection.disconnect()
                 partial.delete()
                 return downloadOne(spec, partial, onProgress)
