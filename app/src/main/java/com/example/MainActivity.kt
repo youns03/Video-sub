@@ -252,7 +252,7 @@ fun SubVidMainApp(viewModel: MainViewModel = viewModel()) {
                             onDeleteProject = { viewModel.deleteProject(it) }
                         )
 
-                        3 -> SettingsScreen()
+                        3 -> SettingsScreen(isProcessing = currentProject?.isProcessing == true)
                     }
                 }
             }
