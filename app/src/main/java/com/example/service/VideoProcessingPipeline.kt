@@ -226,10 +226,32 @@ class VideoProcessingPipeline(private val context: Context) {
         project = project.copy(
             currentStage = PipelineStage.EXTRACTING_SPEECH_FR,
             progressPercent = 48,
-            statusMessage = "تم استيراد الفيديو. يجري التحقق من توفر محرك تفريغ صوتي حقيقي..."
+            statusMessage = "تم استيراد الفيديو. يجري تجهيز نموذج Whisper المحلي..."
         )
         _currentProject.value = project
         onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, 48, project.statusMessage)
+
+        try {
+            WhisperModelManager.ensureModel(context) { percent, message ->
+                val modelProgress = 48 + (percent * 10 / 100)
+                _currentProject.value = _currentProject.value?.copy(
+                    progressPercent = modelProgress,
+                    statusMessage = message
+                )
+                onStageChanged(PipelineStage.EXTRACTING_SPEECH_FR, modelProgress, message)
+            }
+        } catch (error: Exception) {
+            val message = error.message ?: "تعذر تجهيز نموذج التفريغ المحلي."
+            val failedProject = project.copy(
+                currentStage = PipelineStage.ERROR,
+                progressPercent = 40,
+                statusMessage = message,
+                errorMessage = message
+            )
+            _currentProject.value = failedProject
+            onStageChanged(PipelineStage.ERROR, 40, message)
+            return failedProject
+        }
 
         val rawFrenchSegments: List<SubtitleSegment> = try {
             FrenchSTTEngine.transcribe(
@@ -237,7 +259,7 @@ class VideoProcessingPipeline(private val context: Context) {
                 mediaPath = downloadedFile.absolutePath,
                 durationSeconds = copiedDurationSeconds
             ) { p, text ->
-                val calcProgress = 48 + (p * 22 / 100)
+                val calcProgress = 58 + (p * 12 / 100)
                 _currentProject.value = _currentProject.value?.copy(
                     progressPercent = calcProgress,
                     statusMessage = "تفريغ الصوت: \"${text.take(35)}...\""
@@ -247,12 +269,12 @@ class VideoProcessingPipeline(private val context: Context) {
             val message = error.message ?: "تعذر تفريغ الصوت الفرنسي."
             val failedProject = project.copy(
                 currentStage = PipelineStage.ERROR,
-                progressPercent = 40,
+                progressPercent = 58,
                 statusMessage = message,
                 errorMessage = message
             )
             _currentProject.value = failedProject
-            onStageChanged(PipelineStage.ERROR, 40, message)
+            onStageChanged(PipelineStage.ERROR, 58, message)
             return failedProject
         }
 
