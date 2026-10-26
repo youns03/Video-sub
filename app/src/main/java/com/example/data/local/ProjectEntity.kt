@@ -22,7 +22,11 @@ data class ProjectEntity(
     val videoQuality: String = "360p (SD - 640x360)",
     val videoFileSizeMb: Double = 6.4,
     val localVideoPath: String? = null,
-    val isHardsubMerged: Boolean = false
+    val isHardsubMerged: Boolean = false,
+    val currentStage: String? = null,
+    val progressPercent: Int? = null,
+    val statusMessage: String? = null,
+    val errorMessage: String? = null
 ) {
     fun toVideoProject(): VideoProject {
         return VideoProject(
@@ -32,9 +36,10 @@ data class ProjectEntity(
             platform = try { PlatformType.valueOf(platform) } catch (e: Exception) { PlatformType.DIRECT_URL },
             durationSeconds = durationSeconds,
             thumbnailUrl = thumbnailUrl,
-            currentStage = PipelineStage.COMPLETED,
-            progressPercent = 100,
-            statusMessage = "جاهز للتحميل والمعاينة والتصدير",
+            currentStage = runCatching { PipelineStage.valueOf(currentStage ?: PipelineStage.COMPLETED.name) }.getOrDefault(PipelineStage.COMPLETED),
+            progressPercent = progressPercent ?: 100,
+            statusMessage = statusMessage ?: "جاهز للتحميل والمعاينة والتصدير",
+            errorMessage = errorMessage,
             segments = segments,
             createdAt = createdAt,
             audioBitrate = audioBitrate,
@@ -62,7 +67,11 @@ data class ProjectEntity(
                 videoQuality = project.videoQuality,
                 videoFileSizeMb = project.videoFileSizeMb,
                 localVideoPath = project.localVideoPath,
-                isHardsubMerged = project.isHardsubMerged
+                isHardsubMerged = project.isHardsubMerged,
+                currentStage = project.currentStage.name,
+                progressPercent = project.progressPercent,
+                statusMessage = project.statusMessage,
+                errorMessage = project.errorMessage
             )
         }
     }
