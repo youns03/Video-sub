@@ -18,6 +18,8 @@ import com.example.service.VideoDownloaderService
 import com.example.service.VideoProcessingPipeline
 import com.example.service.VideoSubtitleMerger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -245,17 +247,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun download360pVideo() {
         val current = currentProject.value ?: return
-        val localPath = current.localVideoPath
-        val videoFile = localPath?.let(::File)
+        val videoFile = current.localVideoPath?.let(::File)
         if (videoFile == null || !videoFile.isFile || videoFile.length() <= 0L) {
-            _statusNotice.value = "لم نعثر على ملف الفيديو الأصلي. لن نصدر فيديو تجريبياً بدلاً منه."
+            _statusNotice.value = "لم نعثر على ملف الفيديو الأصلي. لن نصدر فيديو تجريبيًا بدلاً منه."
             return
         }
-        val savedUri = VideoDownloaderService.saveVideoToUserGallery(context, videoFile, current.title)
-        _statusNotice.value = if (savedUri != null) {
-            "تم حفظ الفيديو الأصلي في المعرض. لم يتم تحويل دقته إلى 360p."
-        } else {
-            "تعذر حفظ الفيديو في المعرض."
+        viewModelScope.launch {
+            _statusNotice.value = "جارٍ حفظ الفيديو الأصلي في المعرض..."
+            try {
+                val savedUri = withContext(Dispatchers.IO) {
+                    VideoDownloaderService.saveVideoToUserGallery(context, videoFile, current.title)
+                }
+                _statusNotice.value = if (savedUri != null) {
+                    "تم حفظ الفيديو الأصلي في المعرض. لم يتم تحويل دقته إلى 360p."
+                } else {
+                    "تعذر حفظ الفيديو في المعرض؛ تحقق من مساحة التخزين وتنسيق الملف."
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _statusNotice.value = error.message ?: "تعذر حفظ الفيديو في المعرض."
+            }
         }
     }
 
