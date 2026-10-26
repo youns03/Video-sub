@@ -47,10 +47,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var status by remember { mutableStateOf(if (store.read().hasApiKey) "مفتاح محفوظ بأمان" else "لم يتم ضبط المفتاح") }
     var busy by remember { mutableStateOf(false) }
     var downloadingModel by remember { mutableStateOf(false) }
-    var modelReady by remember { mutableStateOf(WhisperModelManager.isReady(context)) }
+    var selectedModel by remember { mutableStateOf(WhisperModelManager.selectedModel(context)) }
+    var modelReady by remember { mutableStateOf(WhisperModelManager.isReady(context, selectedModel)) }
     var modelProgress by remember { mutableStateOf(0) }
     var modelMessage by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
+    val chooseModel: (WhisperModelManager.ModelSize) -> Unit = { chosen ->
+        if (!busy && chosen != selectedModel) {
+            WhisperModelManager.selectModel(context, chosen)
+            selectedModel = chosen
+            modelReady = WhisperModelManager.isReady(context, chosen)
+            modelProgress = 0
+            modelMessage = ""
+        }
+    }
 
     if (confirmDelete) {
         AlertDialog(
@@ -158,9 +168,26 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("نموذج Whisper المتوافق", style = MaterialTheme.typography.titleLarge)
-                Text("النموذج المتاح حاليًا: ${WhisperModelManager.modelDisplayName()}")
-                Text("الحجم التقريبي: ${WhisperModelManager.modelApproximateSizeMb()} MB — المساحة المتاحة: ${WhisperModelManager.availableFreeMb(context)} MB")
+                Text("نماذج Whisper", style = MaterialTheme.typography.titleLarge)
+                Text("اختر التوازن المناسب بين السرعة والدقة:")
+                Row {
+                    RadioButton(
+                        selected = selectedModel == WhisperModelManager.ModelSize.TINY,
+                        onClick = { chooseModel(WhisperModelManager.ModelSize.TINY) },
+                        enabled = !busy
+                    )
+                    Text("Tiny INT8 — نحو 105 MB، أسرع وأخف", Modifier.padding(top = 12.dp))
+                }
+                Row {
+                    RadioButton(
+                        selected = selectedModel == WhisperModelManager.ModelSize.BASE,
+                        onClick = { chooseModel(WhisperModelManager.ModelSize.BASE) },
+                        enabled = !busy
+                    )
+                    Text("Base INT8 — نحو 170 MB، دقة أفضل غالبًا", Modifier.padding(top = 12.dp))
+                }
+                Text("النموذج المحدد: ${WhisperModelManager.modelDisplayName(context)}")
+                Text("الحجم التقريبي: ${WhisperModelManager.modelApproximateSizeMb(context)} MB — المساحة المتاحة: ${WhisperModelManager.availableFreeMb(context)} MB")
                 Text(if (modelReady) "الحالة: مكتمل ومتحقق" else "الحالة: غير منزّل")
                 if (downloadingModel && modelProgress > 0) LinearProgressIndicator(progress = { modelProgress / 100f }, Modifier.fillMaxWidth())
                 if (modelMessage.isNotBlank()) Text(modelMessage)
