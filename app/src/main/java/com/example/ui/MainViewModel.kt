@@ -87,9 +87,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 inputUrl = url,
                 presetSample = preset
             )
-            if (finishedProject.isCompleted) {
+            if (finishedProject.isCompleted ||
+                (finishedProject.localVideoPath != null && finishedProject.segments.isNotEmpty())) {
                 projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(finishedProject))
-                _statusNotice.value = if (finishedProject.platform == PlatformType.LOCAL_FILE) "تم استيراد الفيديو وإنشاء مشروع المعالجة." else "اكتملت معالجة المشروع."
+                _statusNotice.value = if (finishedProject.isCompleted) {
+                    "اكتملت المعالجة وحُفظ المشروع."
+                } else {
+                    "حُفظ النص الفرنسي وتوقيتاته؛ يمكنك إعادة الترجمة دون إعادة التفريغ."
+                }
             }
         }
     }
@@ -98,6 +103,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val current = currentProject.value ?: return
         val retrySource = current.localVideoPath?.let { path -> Uri.fromFile(File(path)).toString() } ?: current.sourceUrl
         startPipeline(retrySource, lastUsedPreset)
+    }
+
+    /** Retry only missing Arabic translations; keep French text and timing unchanged. */
+    fun retryTranslation() {
+        val original = currentProject.value ?: return
+        if (original.segments.isEmpty()) return
+
+        viewModelScope.launch {
+            var working = original.copy(
+                currentStage = PipelineStage.TRANSLATING_AR,
+                progressPercent = 74,
+                statusMessage = "إعادة ترجمة المقاطع الناقصة؛ لن يُعاد تفريغ الصوت.",
+                errorMessage = null
+            )
+            val segments = original.segments.toMutableList()
+            pipeline.updateProject(working)
+
+            for (index in segments.indices) {
+                val segment = segments[index]
+                if (segment.arabicText.isBlank()) {
+                    try {
+                        val arabic = ArabicTranslator.translateFrenchToArabic(segment.frenchText)
+                        segments[index] = segment.copy(arabicText = arabic)
+                    } catch (error: Exception) {
+                        working = working.copy(
+                            segments = segments.toList(),
+                            currentStage = PipelineStage.ERROR,
+                            progressPercent = 74 + (index * 16 / segments.size.coerceAtLeast(1)),
+                            statusMessage = error.message ?: "تعذرت الترجمة؛ احتفظنا بالتفريغ الفرنسي والنتائج المكتملة.",
+                            errorMessage = error.message ?: "فشل الاتصال بخدمة الترجمة."
+                        )
+                        pipeline.updateProject(working)
+                        projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(working))
+                        _statusNotice.value = "حُفظ التفريغ الفرنسي. أعد المحاولة لاحقًا دون إعادة التفريغ."
+                        return@launch
+                    }
+                }
+
+                working = working.copy(
+                    segments = segments.toList(),
+                    progressPercent = 74 + ((index + 1) * 16 / segments.size.coerceAtLeast(1)),
+                    statusMessage = "ترجمة المقطع " + (index + 1) + " من " + segments.size + "؛ التوقيت الأصلي محفوظ."
+                )
+                pipeline.updateProject(working)
+            }
+
+            val completed = working.copy(
+                currentStage = PipelineStage.COMPLETED,
+                progressPercent = 100,
+                statusMessage = "اكتملت الترجمة مع الحفاظ على التفريغ الفرنسي والتوقيتات.",
+                errorMessage = null
+            )
+            pipeline.updateProject(completed)
+            projectDao.insertOrUpdate(ProjectEntity.fromVideoProject(completed))
+            _statusNotice.value = "اكتملت الترجمة وحُفظ المشروع."
+        }
     }
 
     fun loadProjectIntoEditor(project: VideoProject) {
