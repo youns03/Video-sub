@@ -66,14 +66,14 @@ class SherpaWhisperBackend private constructor(
         fun open(dir: File): SherpaWhisperBackend {
             fun find(suffix: String): File? = dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(suffix) }
             val vadModel = File(dir, "silero_vad.onnx").takeIf { it.isFile }
-            val encoder = find("base-encoder.int8.onnx")
-            val decoder = find("base-decoder.int8.onnx")
-            val tokens = find("base-tokens.txt")
+            val encoder = find("-encoder.int8.onnx")
+            val decoder = find("-decoder.int8.onnx")
+            val tokens = find("-tokens.txt")
             val missing = buildList {
                 if (vadModel == null) add("silero_vad.onnx")
-                if (encoder == null) add("base-encoder.int8.onnx")
-                if (decoder == null) add("base-decoder.int8.onnx")
-                if (tokens == null) add("base-tokens.txt")
+                if (encoder == null) add("encoder INT8")
+                if (decoder == null) add("decoder INT8")
+                if (tokens == null) add("tokens.txt")
             }
             if (missing.isNotEmpty()) {
                 throw IOException("ملفات نموذج التفريغ ناقصة: " + missing.joinToString("، ") + ". أعد تنزيل النموذج.")
