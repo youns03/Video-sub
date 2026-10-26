@@ -114,62 +114,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         startPipeline(retrySource, lastUsedPreset)
     }
 
-    /** Retry only missing Arabic translations; keep French text and timing unchanged. */
+    /** Retry missing Arabic translations in DeepL-sized batches; keep French text and timing unchanged. */
     fun retryTranslation() {
         val original = currentProject.value ?: return
         if (original.segments.isEmpty()) return
 
         viewModelScope.launch {
+            val segments = original.segments.toMutableList()
+            val missingIndices = segments.indices.filter { segments[it].arabicText.isBlank() }
+            if (missingIndices.isEmpty()) {
+                _statusNotice.value = "كل المقاطع مترجمة بالفعل."
+                return@launch
+            }
+
             var working = original.copy(
                 currentStage = PipelineStage.TRANSLATING_AR,
                 progressPercent = 74,
-                statusMessage = "إعادة ترجمة المقاطع الناقصة؛ لن يُعاد تفريغ الصوت.",
+                statusMessage = "إعادة ترجمة ${missingIndices.size} مقطعًا على دفعات؛ لن يُعاد تفريغ الصوت.",
                 errorMessage = null
             )
-            val segments = original.segments.toMutableList()
             pipeline.updateProject(working)
-
-            for (index in segments.indices) {
-                val segment = segments[index]
-                if (segment.arabicText.isBlank()) {
-                    try {
-                        val arabic = ArabicTranslator.translateFrenchToArabic(segment.frenchText)
-                        segments[index] = segment.copy(arabicText = arabic)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (error: Exception) {
-                        working = working.copy(
-                            segments = segments.toList(),
-                            currentStage = PipelineStage.ERROR,
-                            progressPercent = 74 + (index * 16 / segments.size.coerceAtLeast(1)),
-                            statusMessage = error.message ?: "تعذرت الترجمة؛ احتفظنا بالتفريغ الفرنسي والنتائج المكتملة.",
-                            errorMessage = error.message ?: "فشل الاتصال بخدمة الترجمة."
-                        )
-                        pipeline.updateProject(working)
-                        if (persistProjectSafely(working, "تعذر حفظ التفريغ الفرنسي في السجل.")) {
-                            _statusNotice.value = "حُفظ التفريغ الفرنسي. أعد المحاولة لاحقًا دون إعادة التفريغ."
-                        }
-                        return@launch
-                    }
+            try {
+                val translated = DeepLTranslator.translate(
+                    context,
+                    missingIndices.map { segments[it].frenchText }
+                )
+                if (translated.size != missingIndices.size) {
+                    throw IllegalStateException("لم تُرجع DeepL ترجمة لكل المقاطع الناقصة.")
                 }
-
+                missingIndices.forEachIndexed { position, segmentIndex ->
+                    segments[segmentIndex] = segments[segmentIndex].copy(arabicText = translated[position])
+                }
                 working = working.copy(
                     segments = segments.toList(),
-                    progressPercent = 74 + ((index + 1) * 16 / segments.size.coerceAtLeast(1)),
-                    statusMessage = "ترجمة المقطع " + (index + 1) + " من " + segments.size + "؛ التوقيت الأصلي محفوظ."
+                    currentStage = PipelineStage.COMPLETED,
+                    progressPercent = 100,
+                    statusMessage = "اكتملت ترجمة المقاطع الناقصة مع الحفاظ على التفريغ الفرنسي والتوقيتات.",
+                    errorMessage = null
                 )
                 pipeline.updateProject(working)
-            }
-
-            val completed = working.copy(
-                currentStage = PipelineStage.COMPLETED,
-                progressPercent = 100,
-                statusMessage = "اكتملت الترجمة مع الحفاظ على التفريغ الفرنسي والتوقيتات.",
-                errorMessage = null
-            )
-            pipeline.updateProject(completed)
-            if (persistProjectSafely(completed, "اكتملت الترجمة، لكن تعذر حفظ المشروع في السجل.")) {
-                _statusNotice.value = "اكتملت الترجمة وحُفظ المشروع."
+                if (persistProjectSafely(working, "اكتملت الترجمة، لكن تعذر حفظ المشروع في السجل.")) {
+                    _statusNotice.value = "اكتملت الترجمة وحُفظ المشروع."
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                working = working.copy(
+                    segments = original.segments,
+                    currentStage = PipelineStage.ERROR,
+                    statusMessage = error.message ?: "تعذرت الترجمة؛ احتفظنا بالتفريغ الفرنسي والترجمات السابقة.",
+                    errorMessage = error.message ?: "فشل الاتصال بخدمة الترجمة."
+                )
+                pipeline.updateProject(working)
+                persistProjectSafely(working, "تعذر حفظ التفريغ الفرنسي في السجل.")
             }
         }
     }
@@ -221,12 +218,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         viewModelScope.launch {
-            _statusNotice.value = "جاري إعادة ترجمة المقاطع..."
+            _statusNotice.value = "جارٍ إعادة ترجمة جميع المقاطع عبر DeepL على دفعات..."
             try {
-                val updatedSegments = current.segments.map { seg ->
-                    val newAr = ArabicTranslator.translateFrenchToArabic(seg.frenchText)
-                    if (newAr.isBlank()) throw IllegalStateException("أعادت خدمة الترجمة نصاً فارغاً.")
-                    seg.copy(arabicText = newAr)
+                val frenchTexts = current.segments.map { it.frenchText }
+                val arabicTexts = DeepLTranslator.translate(context, frenchTexts)
+                if (arabicTexts.size != current.segments.size) {
+                    throw IllegalStateException("لم تُرجع DeepL ترجمة لكل المقاطع.")
+                }
+                val updatedSegments = current.segments.mapIndexed { index, segment ->
+                    segment.copy(arabicText = arabicTexts[index])
                 }
                 val updatedProject = current.copy(segments = updatedSegments)
                 pipeline.updateProject(updatedProject)
@@ -236,7 +236,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                _statusNotice.value = error.message ?: "تعذرت إعادة الترجمة؛ لم نُحفظ نتيجة جزئية."
+                _statusNotice.value = error.message ?: "تعذرت إعادة الترجمة؛ احتفظنا بالترجمة السابقة."
             }
         }
     }
