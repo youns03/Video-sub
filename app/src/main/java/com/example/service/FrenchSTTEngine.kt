@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-/** Local French speech transcription; fails closed until a real backend is registered. */
+/** Local French speech transcription through the registered offline backend. */
 object FrenchSTTEngine {
     const val MAX_CHARS_PER_LINE = 40
     const val MIN_DURATION_MS = 1400L
@@ -39,7 +39,7 @@ object FrenchSTTEngine {
         val durationMs = durationSeconds * 1000L
         return withContext(Dispatchers.Default) {
             val backend = openBackend() ?: throw IOException(
-                "محرك التفريغ الصوتي الحقيقي غير مدمج بعد. أوقفنا إنشاء ترجمة تخمينية."
+                "محرك التفريغ المحلي غير جاهز. أوقفنا إنشاء ترجمة تخمينية."
             )
             backend.use { engine ->
                 val raw = ArrayList<RecognizedUtterance>()
