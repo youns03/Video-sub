@@ -17,6 +17,7 @@ import com.example.service.SrtGenerator
 import com.example.service.VideoDownloaderService
 import com.example.service.VideoProcessingPipeline
 import com.example.service.VideoSubtitleMerger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _inputUrl = MutableStateFlow("")
     val inputUrl: StateFlow<String> = _inputUrl.asStateFlow()
 
-    private val _selectedTab = MutableStateFlow(0) // 0: Pipeline, 1: Editor, 2: History, 3: Technical Report
+    private val _selectedTab = MutableStateFlow(0) // 0: Pipeline, 1: Editor, 2: History, 3: Settings
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
     private val _playbackPositionMs = MutableStateFlow(0L)
@@ -126,6 +127,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         val arabic = ArabicTranslator.translateFrenchToArabic(segment.frenchText)
                         segments[index] = segment.copy(arabicText = arabic)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (error: Exception) {
                         working = working.copy(
                             segments = segments.toList(),
@@ -219,6 +222,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 pipeline.updateProject(updatedProject)
                 saveProjectToDb(updatedProject)
                 _statusNotice.value = "تم تحديث الترجمة."
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 _statusNotice.value = error.message ?: "تعذرت إعادة الترجمة؛ لم نُحفظ نتيجة جزئية."
             }
@@ -278,6 +283,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     videoTitle = current.title
                 ) { }
                 _statusNotice.value = "تعذر دمج الترجمة: محرك الحرق الحقيقي غير مدمج بعد."
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 _statusNotice.value = error.message ?: "تعذر دمج الترجمة داخل الفيديو."
             } finally {
