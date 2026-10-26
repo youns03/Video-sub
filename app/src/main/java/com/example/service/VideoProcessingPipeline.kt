@@ -168,8 +168,10 @@ class VideoProcessingPipeline(private val context: Context) {
                     )
                 }
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
-            val message = error.message ?: "تعذر تنزيل الفيديو من الرابط"
+            val message = error.message ?: "تعذر استيراد الفيديو من الهاتف."
             val failedProject = project.copy(
                 currentStage = PipelineStage.ERROR,
                 progressPercent = 18,
