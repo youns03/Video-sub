@@ -1,6 +1,7 @@
 package com.example.service
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -91,6 +92,8 @@ object WhisperModelManager {
                     partial.copyTo(destination, overwrite = true)
                     partial.delete()
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 // Preserve partial downloads so a later retry can resume them.
                 throw if (error is IOException) error
