@@ -72,6 +72,8 @@ fun EditorScreen(
     isPlaying: Boolean,
     onPlayPauseToggle: () -> Unit,
     onSeekTo: (Long) -> Unit,
+    onPlaybackPositionChanged: (Long) -> Unit,
+    onPlaybackEnded: () -> Unit,
     onUpdateSegment: (SubtitleSegment) -> Unit,
     onDeleteSegment: (SubtitleSegment) -> Unit,
     onAddNewSegment: (french: String, arabic: String, startMs: Long, endMs: Long) -> Unit,
@@ -139,7 +141,9 @@ fun EditorScreen(
                     currentPositionMs = playbackPositionMs,
                     isPlaying = isPlaying,
                     onPlayPauseToggle = onPlayPauseToggle,
-                    onSeekTo = onSeekTo
+                    onSeekTo = onSeekTo,
+                    onPlaybackPositionChanged = onPlaybackPositionChanged,
+                    onPlaybackEnded = onPlaybackEnded
                 )
             }
 
