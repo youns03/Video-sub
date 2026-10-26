@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.SubtitleSegment
 import com.example.data.model.VideoProject
 import com.example.service.SrtGenerator
+import com.example.service.SubtitleQualityAnalyzer
 import com.example.ui.components.SegmentEditDialog
 import com.example.ui.components.VideoPlayerPreview
 import com.example.ui.theme.EmeraldGreen
@@ -116,6 +117,13 @@ fun EditorScreen(
             return@CompositionLocalProvider
         }
 
+        fun validatedSrtContent(): String? = try {
+            SrtGenerator.buildSrtContent(project.segments)
+        } catch (error: IllegalArgumentException) {
+            Toast.makeText(context, error.message ?: "تعذر إنشاء ملف SRT صالح.", Toast.LENGTH_LONG).show()
+            null
+        }
+
         val filteredSegments = remember(project.segments, searchQuery) {
             if (searchQuery.isBlank()) {
                 project.segments
@@ -125,6 +133,9 @@ fun EditorScreen(
                             it.frenchText.contains(searchQuery, ignoreCase = true)
                 }
             }
+        }
+        val subtitleWarnings = remember(project.segments) {
+            SubtitleQualityAnalyzer.analyze(project.segments)
         }
 
         LazyColumn(
@@ -145,6 +156,40 @@ fun EditorScreen(
                     onPlaybackPositionChanged = onPlaybackPositionChanged,
                     onPlaybackEnded = onPlaybackEnded
                 )
+            }
+
+            if (subtitleWarnings.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().testTag("subtitle_quality_warnings"),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "تحتاج الترجمة إلى مراجعة (${subtitleWarnings.size} ملاحظة)",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                            subtitleWarnings.take(4).forEach { warning ->
+                                Text(
+                                    warning.message,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (subtitleWarnings.size > 4) {
+                                Text(
+                                    "وتوجد ${subtitleWarnings.size - 4} ملاحظات أخرى في المقاطع.",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Quick Export & Tools Bar
@@ -173,8 +218,10 @@ fun EditorScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 IconButton(
                                     onClick = {
-                                        SrtGenerator.copyToClipboard(context, project.srtContent)
-                                        Toast.makeText(context, "تم نسخ محتوى SRT إلى الحافظة", Toast.LENGTH_SHORT).show()
+                                        validatedSrtContent()?.let { content ->
+                                            SrtGenerator.copyToClipboard(context, content)
+                                            Toast.makeText(context, "تم نسخ محتوى SRT إلى الحافظة", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     modifier = Modifier.testTag("copy_srt_button")
                                 ) {
@@ -183,8 +230,10 @@ fun EditorScreen(
 
                                 IconButton(
                                     onClick = {
-                                        val file = SrtGenerator.saveSrtToFile(context, project.srtContent, project.title)
-                                        SrtGenerator.shareSrtFile(context, file, project.title)
+                                        validatedSrtContent()?.let { content ->
+                                            val file = SrtGenerator.saveSrtToFile(context, content, project.title)
+                                            SrtGenerator.shareSrtFile(context, file, project.title)
+                                        }
                                     },
                                     modifier = Modifier.testTag("share_editor_srt_button")
                                 ) {
@@ -204,8 +253,10 @@ fun EditorScreen(
 
                                 IconButton(
                                     onClick = {
-                                        val file = SrtGenerator.saveSrtToFile(context, project.srtContent, project.title)
-                                        Toast.makeText(context, "تم حفظ الملف في Documents/Subtitles:\n${file.name}", Toast.LENGTH_LONG).show()
+                                        validatedSrtContent()?.let { content ->
+                                            val file = SrtGenerator.saveSrtToFile(context, content, project.title)
+                                            Toast.makeText(context, "تم حفظ الملف في Documents/Subtitles:\n${file.name}", Toast.LENGTH_LONG).show()
+                                        }
                                     },
                                     modifier = Modifier.testTag("download_srt_button")
                                 ) {

@@ -27,4 +27,19 @@ class DeepLTranslatorTest {
         assertTrue((0 until body.size).any { body.name(it) == "text" && body.value(it) == "Bonjour" })
         assertTrue((0 until body.size).any { body.name(it) == "text" && body.value(it) == "Comment allez-vous ?" })
     }
+
+    @Test
+    fun includesSurroundingFrenchContextInTranslationRequest() {
+        val request = DeepLTranslator.buildRequest(
+            baseUrl = "https://api-free.deepl.com",
+            apiKey = "unit-test-secret",
+            texts = listOf("Le navigateur connaît la route."),
+            context = "Il s'agit du navigateur d'un navire, pas d'un logiciel."
+        )
+        val body = request.body as FormBody
+        val contextValue = (0 until body.size)
+            .firstOrNull { body.name(it) == "context" }
+            ?.let(body::value)
+        assertEquals("Il s'agit du navigateur d'un navire, pas d'un logiciel.", contextValue)
+    }
 }

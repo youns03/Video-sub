@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit
 object DeepLTranslator {
     private const val MAX_TEXTS_PER_REQUEST = 50
     private const val MAX_CHARS_PER_REQUEST = 25_000
+    private const val MAX_CONTEXT_CHARS = 12_000
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -22,7 +23,13 @@ object DeepLTranslator {
         val store = DeepLSettingsStore(context)
         val values = frenchTexts.map { it.trim() }
         if (values.any { it.isEmpty() }) throw IOException("لا يمكن ترجمة مقطع فرنسي فارغ.")
-        values.chunkedByDeepLLimits().flatMap { batch -> requestBatch(store, batch) }
+        val batches = values.chunkedByDeepLLimits()
+        var nextIndex = 0
+        batches.flatMap { batch ->
+            val contextText = contextualExcerpt(values, nextIndex, batch.size)
+            nextIndex += batch.size
+            requestBatch(store, batch, contextText)
+        }
     }
 
     suspend fun translateOne(context: Context, frenchText: String): String =
@@ -34,11 +41,11 @@ object DeepLTranslator {
         result
     }
 
-    private fun requestBatch(store: DeepLSettingsStore, texts: List<String>): List<String> {
+    private fun requestBatch(store: DeepLSettingsStore, texts: List<String>, context: String): List<String> {
         var lastAuthError: IOException? = null
         for (baseUrl in store.baseUrls()) {
             try {
-                return requestBatchAt(baseUrl, store.apiKey(), texts)
+                return requestBatchAt(baseUrl, store.apiKey(), texts, context)
             } catch (error: IOException) {
                 if (!error.message.orEmpty().contains("AUTH_RETRY")) throw error
                 lastAuthError = error
@@ -48,10 +55,11 @@ object DeepLTranslator {
         throw IOException("تعذر مصادقة مفتاح DeepL بعد تجربة عنواني الخطة المجانية والمدفوعة. $detail")
     }
 
-    internal fun buildRequest(baseUrl: String, apiKey: String, texts: List<String>): Request {
+    internal fun buildRequest(baseUrl: String, apiKey: String, texts: List<String>, context: String? = null): Request {
         val form = FormBody.Builder()
             .add("source_lang", "FR")
             .add("target_lang", "AR")
+        if (!context.isNullOrBlank()) form.add("context", context)
         texts.forEach { form.add("text", it) }
         return Request.Builder()
             .url(baseUrl + "/v2/translate")
@@ -61,8 +69,14 @@ object DeepLTranslator {
             .build()
     }
 
-    internal fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>, httpClient: OkHttpClient = client): List<String> {
-        val request = buildRequest(baseUrl, apiKey, texts)
+    internal fun requestBatchAt(
+        baseUrl: String,
+        apiKey: String,
+        texts: List<String>,
+        context: String = "",
+        httpClient: OkHttpClient = client
+    ): List<String> {
+        val request = buildRequest(baseUrl, apiKey, texts, context)
         httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -107,5 +121,17 @@ object DeepLTranslator {
         }
         if (current.isNotEmpty()) batches += current
         return batches
+    }
+
+    private fun contextualExcerpt(values: List<String>, batchStart: Int, batchSize: Int): String {
+        val wholeContext = values.joinToString(" ")
+        if (wholeContext.length <= MAX_CONTEXT_CHARS) return wholeContext
+        val startOffset = values.take(batchStart).sumOf { it.length + 1 }.coerceAtMost(wholeContext.length)
+        val batchLength = values.drop(batchStart).take(batchSize).sumOf { it.length + 1 }
+        val contextStart = (startOffset - MAX_CONTEXT_CHARS / 2).coerceAtLeast(0)
+        val contextEnd = (startOffset + batchLength + MAX_CONTEXT_CHARS / 2)
+            .coerceAtMost(wholeContext.length)
+            .coerceAtMost(contextStart + MAX_CONTEXT_CHARS)
+        return wholeContext.substring(contextStart, contextEnd).trim()
     }
 }

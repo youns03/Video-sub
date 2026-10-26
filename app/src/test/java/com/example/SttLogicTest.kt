@@ -5,7 +5,12 @@ import com.example.service.FrenchSTTEngine
 import com.example.service.PcmSource
 import com.example.service.RecognizedUtterance
 import com.example.service.SpeechBackend
+import com.example.service.SpeechWindowSplitter
 import com.example.service.SubtitleCueBuilder
+import com.example.service.SubtitleQualityAnalyzer
+import com.example.service.TimedWord
+import com.example.service.WhisperTokenAligner
+import com.example.data.model.SubtitleSegment
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,6 +39,103 @@ class SttLogicTest {
         val written = resampler.process(input, input.size, output)
         assertEquals(1_600, written)
         assertTrue(output.take(written).all { kotlin.math.abs(it - 0.25f) < 0.0001f })
+    }
+
+    @Test
+    fun whisperTokenTimestampsGroupSubwordsAndAttachPunctuation() {
+        val words = WhisperTokenAligner.align(
+            tokens = arrayOf(" Bonjour", " bon", "jour", " à", " tous", "!"),
+            timestampsSeconds = floatArrayOf(0.0f, 0.1f, 0.15f, 0.3f, 0.45f, 0.65f),
+            windowStartMs = 5_000L,
+            windowEndMs = 7_000L
+        )
+        assertEquals(listOf("Bonjour", "bonjour", "à", "tous!"), words.map { it.text })
+        assertEquals(5_000L, words.first().startMs)
+        assertEquals(5_100L, words[1].startMs)
+        assertEquals(5_450L, words.last().startMs)
+        assertTrue(words.zipWithNext().all { (first, second) -> first.startMs <= second.startMs })
+    }
+
+    @Test
+    fun whisperTokenAlignerRejectsCollapsedTimestamps() {
+        val words = WhisperTokenAligner.align(
+            tokens = arrayOf(" Bonjour", " tout", " le", " monde"),
+            timestampsSeconds = floatArrayOf(0f, 0f, 0f, 0f),
+            windowStartMs = 0L,
+            windowEndMs = 20_000L
+        )
+        assertTrue(words.isEmpty())
+    }
+
+    @Test
+    fun cueBuilderUsesWordTimesAndEndsAtSentenceAndPauseBoundaries() {
+        val cues = SubtitleCueBuilder.build(
+            listOf(
+                RecognizedUtterance(
+                    startMs = 0L,
+                    endMs = 4_000L,
+                    text = "Bonjour à tous. Comment allez-vous?",
+                    words = listOf(
+                        TimedWord(500L, 800L, "Bonjour"),
+                        TimedWord(800L, 900L, "à"),
+                        TimedWord(900L, 1_200L, "tous."),
+                        TimedWord(1_700L, 2_050L, "Comment"),
+                        TimedWord(2_050L, 2_600L, "allez-vous?")
+                    )
+                )
+            ),
+            offsetMs = 0L,
+            durationMs = 4_000L
+        )
+        assertEquals(2, cues.size)
+        assertEquals("Bonjour à tous.", cues[0].frenchText)
+        assertEquals("Comment allez-vous?", cues[1].frenchText)
+        assertTrue(cues[0].endTimeMs < cues[1].startTimeMs)
+        assertEquals(400L, cues[0].startTimeMs)
+    }
+
+    @Test
+    fun cueBuilderRejectsLongUnalignedIntervalInsteadOfStretchingText() {
+        try {
+            SubtitleCueBuilder.build(
+                listOf(RecognizedUtterance(0L, 110_000L, "Bonjour, bienvenue.")),
+                offsetMs = 0L,
+                durationMs = 120_000L
+            )
+            throw AssertionError("Long unaligned text must not be stretched across the audio interval")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message.orEmpty().contains("نوافذ أصغر"))
+        }
+    }
+
+    @Test
+    fun qualityAnalyzerFlagsSparseOverlappingFastAndRepeatedCues() {
+        val warnings = SubtitleQualityAnalyzer.analyze(
+            listOf(
+                SubtitleSegment(1, 0L, 6_000L, "Bonjour", "مرحباً"),
+                SubtitleSegment(2, 5_500L, 7_500L, "Bonjour encore", "السلام عليكم"),
+                SubtitleSegment(3, 8_000L, 8_500L, "C'est très rapide", "هذه جملة سريعة للغاية جدًا")
+            )
+        ).map { it.message }
+        assertTrue(warnings.any { it.contains("نص قليل") })
+        assertTrue(warnings.any { it.contains("يتداخل") })
+        assertTrue(warnings.any { it.contains("مكررة") })
+        assertTrue(warnings.any { it.contains("سرعة القراءة") })
+    }
+
+    @Test
+    fun longSpeechIsHardSplitAtLowEnergyWithoutExceedingWhisperWindowLimit() {
+        val sampleRate = 16_000
+        val samples = FloatArray(sampleRate * 55) { 0.1f }
+        for (index in sampleRate * 14_900 / 1_000 until sampleRate * 15_250 / 1_000) samples[index] = 0f
+        for (index in sampleRate * 34_800 / 1_000 until sampleRate * 35_150 / 1_000) samples[index] = 0f
+
+        val windows = SpeechWindowSplitter.split(samples, sampleRate)
+        assertTrue(windows.size >= 3)
+        assertTrue(windows.all { it.lengthSamples <= sampleRate * SpeechWindowSplitter.DEFAULT_MAX_WINDOW_SECONDS })
+        assertEquals(0, windows.first().startSample)
+        assertEquals(samples.size, windows.last().endSample)
+        assertTrue(windows.zipWithNext().all { (first, second) -> second.startSample < first.endSample })
     }
 
     @Test

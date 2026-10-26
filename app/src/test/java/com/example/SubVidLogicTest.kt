@@ -87,11 +87,36 @@ class SubVidLogicTest {
     }
 
     @Test
+    fun testSrtGeneratorRejectsOverlappingCues() {
+        val overlapping = listOf(
+            SubtitleSegment(1, 0L, 2500L, "Bonjour", "مرحباً"),
+            SubtitleSegment(2, 2000L, 4000L, "Au revoir", "مع السلامة")
+        )
+        try {
+            SrtGenerator.buildSrtContent(overlapping)
+            throw AssertionError("Overlapping SRT cues must not be exported")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message.orEmpty().contains("متداخلة"))
+        }
+    }
+
+    @Test
     fun testArabicTranslator_PunctuationNormalization() {
         val formatted = ArabicTranslator.formatArabicSubtitleText("كيف حالك اليوم? شكراً, نحن بخير")
         assertTrue(formatted.contains("؟"))
         assertTrue(formatted.contains("،"))
         assertFalse(formatted.contains("?"))
+    }
+
+    @Test
+    fun testArabicTranslatorWrapsAtBalancedWordBoundary() {
+        val formatted = ArabicTranslator.formatArabicSubtitleText(
+            "هذه جملة أولى قصيرة، وهذه عبارة ثانية أطول قليلًا لا ينبغي قطعها في منتصف الكلمات"
+        )
+        val lines = formatted.lines()
+        assertTrue(lines.size <= 2)
+        assertTrue(lines.all { it.length <= 42 })
+        assertTrue(lines.joinToString(" ").contains("منتصف الكلمات"))
     }
 
     @Test

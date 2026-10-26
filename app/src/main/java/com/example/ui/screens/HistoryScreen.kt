@@ -63,6 +63,12 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    fun validatedSrtContent(project: VideoProject): String? = try {
+        SrtGenerator.buildSrtContent(project.segments)
+    } catch (error: IllegalArgumentException) {
+        Toast.makeText(context, error.message ?: "تعذر إنشاء ملف SRT صالح.", Toast.LENGTH_LONG).show()
+        null
+    }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         if (projects.isEmpty()) {
@@ -217,8 +223,10 @@ fun HistoryScreen(
 
                                 IconButton(
                                     onClick = {
-                                        val file = SrtGenerator.saveSrtToFile(context, project.srtContent, project.title)
-                                        Toast.makeText(context, "تم حفظ ملف SRT: ${file.name}", Toast.LENGTH_SHORT).show()
+                                        validatedSrtContent(project)?.let { content ->
+                                            val file = SrtGenerator.saveSrtToFile(context, content, project.title)
+                                            Toast.makeText(context, "تم حفظ ملف SRT: ${file.name}", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     modifier = Modifier.testTag("save_history_srt_${project.id}")
                                 ) {
@@ -247,8 +255,10 @@ fun HistoryScreen(
 
                                 IconButton(
                                     onClick = {
-                                        val file = SrtGenerator.saveSrtToFile(context, project.srtContent, project.title)
-                                        SrtGenerator.shareSrtFile(context, file, project.title)
+                                        validatedSrtContent(project)?.let { content ->
+                                            val file = SrtGenerator.saveSrtToFile(context, content, project.title)
+                                            SrtGenerator.shareSrtFile(context, file, project.title)
+                                        }
                                     },
                                     modifier = Modifier.testTag("share_history_srt_${project.id}")
                                 ) {

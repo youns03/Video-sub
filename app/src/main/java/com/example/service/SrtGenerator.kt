@@ -29,6 +29,11 @@ object SrtGenerator {
         }) {
             "ترتيب توقيتات الترجمة غير صحيح."
         }
+        require(segments.zipWithNext().all { (first, second) ->
+            first.endTimeMs <= second.startTimeMs
+        }) {
+            "توجد مقاطع SRT متداخلة زمنيًا؛ راجع حدود البداية والنهاية."
+        }
     }
 
     /**

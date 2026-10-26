@@ -8,10 +8,10 @@ import java.io.IOException
 
 /** Local French speech transcription through the registered offline backend. */
 object FrenchSTTEngine {
-    const val MAX_CHARS_PER_LINE = 40
-    const val MIN_DURATION_MS = 1400L
-    const val MAX_DURATION_MS = 6500L
-    const val PAUSE_BETWEEN_CUES_MS = 120L
+    const val MAX_CHARS_PER_LINE = 42
+    const val MIN_DURATION_MS = 800L
+    const val MAX_DURATION_MS = 6000L
+    const val PAUSE_BETWEEN_CUES_MS = 80L
 
     @Volatile
     var backendFactory: ((Context, WhisperModelManager.ModelSize) -> SpeechBackend)? = null
