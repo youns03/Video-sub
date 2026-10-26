@@ -48,17 +48,21 @@ object DeepLTranslator {
         throw IOException("تعذر مصادقة مفتاح DeepL بعد تجربة عنواني الخطة المجانية والمدفوعة. $detail")
     }
 
-    internal fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>, httpClient: OkHttpClient = client): List<String> {
+    internal fun buildRequest(baseUrl: String, apiKey: String, texts: List<String>): Request {
         val form = FormBody.Builder()
             .add("source_lang", "FR")
             .add("target_lang", "AR")
         texts.forEach { form.add("text", it) }
-        val request = Request.Builder()
+        return Request.Builder()
             .url(baseUrl + "/v2/translate")
             .post(form.build())
             .header("Authorization", "DeepL-Auth-Key $apiKey")
             .header("User-Agent", "SubVid/1.0")
             .build()
+    }
+
+    internal fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>, httpClient: OkHttpClient = client): List<String> {
+        val request = buildRequest(baseUrl, apiKey, texts)
         httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
