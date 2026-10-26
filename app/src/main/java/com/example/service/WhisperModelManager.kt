@@ -30,7 +30,7 @@ object WhisperModelManager {
     private const val PREFS_NAME = "whisper_model_settings"
     private const val SELECTED_MODEL_KEY = "selected_model"
     private const val BASE_REVISION = "31dc0cc3b59ba4a0b52941f1d6dce9c0e30311b4"
-    private const val TINY_REVISION = "18e7b4cce9526312a66981ec3af7b9446b70db66"
+    private const val TINY_REVISION = "65176e2deb88badc814a94058666cadccc29b61c"
 
     private data class ModelFile(
         val name: String,
@@ -57,15 +57,15 @@ object WhisperModelManager {
         ModelSize.TINY -> listOf(
             ModelFile("tiny-encoder.int8.onnx",
                 "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-encoder.int8.onnx",
-                "dd5531121627e7e184a6b8f6a6e353edf39b40e328032dfdc146b5a359a3e3d0",
+                "d24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434",
                 12_000_000L, 14_000_000L),
             ModelFile("tiny-decoder.int8.onnx",
                 "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-decoder.int8.onnx",
-                "dd29c14f2104c14c3aca7dc8e13308190bbe4c65be21c82f4b86a27d8326b26b",
+                "d2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925",
                 88_000_000L, 92_000_000L),
             ModelFile("tiny-tokens.txt",
                 "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-tokens.txt",
-                null, 750_000L, 900_000L)
+                "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126", 800_000L, 850_000L)
         )
     } + ModelFile(
         "silero_vad.onnx",
