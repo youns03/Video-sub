@@ -68,7 +68,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, isProcessing: Boolean = false)
             title = { Text("حذف نموذج Whisper؟") },
             text = { Text("سيُحذف النموذج من الهاتف وستحتاج إلى تنزيله قبل التفريغ التالي.") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !busy && !isProcessing, onClick = {
                     confirmDelete = false
                     busy = true
                     scope.launch {
