@@ -60,7 +60,7 @@ class SherpaWhisperBackend private constructor(
 
     companion object {
         fun install() {
-            FrenchSTTEngine.backendFactory = { context -> open(WhisperModelManager.modelDir(context)) }
+            FrenchSTTEngine.backendFactory = { context, modelSize -> open(WhisperModelManager.modelDir(context, modelSize)) }
         }
 
         fun open(dir: File): SherpaWhisperBackend {
