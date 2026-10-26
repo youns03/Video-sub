@@ -50,13 +50,13 @@ object DeepLTranslator {
 
     private fun requestBatchAt(baseUrl: String, apiKey: String, texts: List<String>): List<String> {
         val form = FormBody.Builder()
-            .add("auth_key", apiKey)
             .add("source_lang", "FR")
             .add("target_lang", "AR")
         texts.forEach { form.add("text", it) }
         val request = Request.Builder()
             .url(baseUrl + "/v2/translate")
             .post(form.build())
+            .header("Authorization", "DeepL-Auth-Key $apiKey")
             .header("User-Agent", "SubVid/1.0")
             .build()
         client.newCall(request).execute().use { response ->

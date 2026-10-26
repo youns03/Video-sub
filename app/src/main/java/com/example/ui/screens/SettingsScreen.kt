@@ -84,11 +84,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation()
                 )
-                Text("الخطة / عنوان الخدمة", style = MaterialTheme.typography.labelLarge)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row { RadioButton(plan == DeepLSettingsStore.Plan.AUTO, { plan = DeepLSettingsStore.Plan.AUTO }); Text("تلقائي", Modifier.padding(top = 12.dp)) }
-                    Row { RadioButton(plan == DeepLSettingsStore.Plan.FREE, { plan = DeepLSettingsStore.Plan.FREE }); Text("مجانية api-free", Modifier.padding(top = 12.dp)) }
-                    Row { RadioButton(plan == DeepLSettingsStore.Plan.PRO, { plan = DeepLSettingsStore.Plan.PRO }); Text("مدفوعة api", Modifier.padding(top = 12.dp)) }
+                Text("خطة DeepL", style = MaterialTheme.typography.labelLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row { RadioButton(plan == DeepLSettingsStore.Plan.AUTO, { plan = DeepLSettingsStore.Plan.AUTO }); Text("تلقائي — يكتشف نوع المفتاح", Modifier.padding(top = 12.dp)) }
+                    Row { RadioButton(plan == DeepLSettingsStore.Plan.FREE, { plan = DeepLSettingsStore.Plan.FREE }); Text("الخطة المجانية", Modifier.padding(top = 12.dp)) }
+                    Row { RadioButton(plan == DeepLSettingsStore.Plan.PRO, { plan = DeepLSettingsStore.Plan.PRO }); Text("الخطة المدفوعة", Modifier.padding(top = 12.dp)) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = apiKey.isNotBlank() && !busy, onClick = {
