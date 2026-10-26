@@ -44,6 +44,14 @@ android {
   }
 
   buildTypes {
+    // Separate package lets this preview coexist with an app installed from Manus AI.
+    create("preview") {
+      initWith(getByName("debug"))
+      applicationIdSuffix = ".preview"
+      signingConfig = signingConfigs.getByName("debugConfig")
+      matchingFallbacks += listOf("debug")
+    }
+
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
