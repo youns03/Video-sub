@@ -10,6 +10,7 @@ import androidx.core.content.FileProvider
 import com.example.data.model.SubtitleSegment
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -73,16 +74,28 @@ object SrtGenerator {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "Sub_${sanitizedTitle}_$timestamp.srt"
 
-        val exportDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Subtitles")
-        if (!exportDir.exists()) {
-            exportDir.mkdirs()
+        val documentsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+            ?: throw IOException("مساحة تخزين المستندات غير متاحة؛ لم يتم حفظ ملف SRT.")
+        val exportDir = File(documentsDir, "Subtitles")
+        if (!exportDir.exists() && !exportDir.mkdirs()) {
+            throw IOException("تعذر إنشاء مجلد حفظ الترجمة؛ تحقق من مساحة التخزين.")
         }
 
         val file = File(exportDir, fileName)
-        FileOutputStream(file).use { output ->
-            output.write(srtContent.toByteArray(Charsets.UTF_8))
+        val temporaryFile = File(exportDir, ".$fileName.part")
+        try {
+            FileOutputStream(temporaryFile).use { output ->
+                output.write(srtContent.toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            if (!temporaryFile.renameTo(file)) {
+                throw IOException("تعذر اعتماد ملف SRT النهائي؛ تحقق من مساحة التخزين.")
+            }
+            return file
+        } catch (error: Exception) {
+            temporaryFile.delete()
+            throw error
         }
-        return file
     }
 
     /**
