@@ -95,7 +95,7 @@ def extract(request: ExtractRequest):
     if not media_url or not str(media_url).startswith(("https://", "http://")):
         raise HTTPException(status_code=502, detail="No downloadable media URL was returned")
 
-    title = re.sub(r"\\s+", " ", metadata.get("title") or "Video").strip()[:120]
+    title = re.sub(r"\s+", " ", metadata.get("title") or "Video").strip()[:120]
     try:
         duration = max(1, int(metadata.get("duration") or 1))
     except (TypeError, ValueError):
