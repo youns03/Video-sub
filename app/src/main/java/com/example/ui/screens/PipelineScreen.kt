@@ -70,6 +70,7 @@ import com.example.data.model.PresetSample
 import com.example.data.model.PresetSamples
 import com.example.data.model.VideoProject
 import com.example.service.UrlValidator
+import com.example.service.WhisperModelManager
 import com.example.ui.components.PipelineProgressCard
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.EmeraldGreen
@@ -230,7 +231,7 @@ fun PipelineScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "في أول استخدام، ينزّل التطبيق نموذج Whisper base بحجم يقارب 160 MB. بعد ذلك يبقى التفريغ محليًا؛ يُرسل النص الفرنسي فقط إلى الإنترنت للترجمة العربية، ولا يُرفع الفيديو أو الصوت.",
+                            text = "في أول استخدام، ينزّل التطبيق نموذج Whisper المحدد (حوالي ${WhisperModelManager.modelApproximateSizeMb(context)} MB). بعد ذلك يبقى التفريغ محليًا؛ يُرسل النص الفرنسي فقط إلى الإنترنت للترجمة العربية، ولا يُرفع الفيديو أو الصوت.",
                             style = MaterialTheme.typography.bodySmall,
                             color = AmberWarning
                         )
