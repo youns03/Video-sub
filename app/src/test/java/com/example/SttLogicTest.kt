@@ -58,7 +58,7 @@ class SttLogicTest {
             FrenchSTTEngine.transcribe(source, { null }, 2) { _, _ -> }
             throw AssertionError("Missing backend must not produce subtitles")
         } catch (error: IOException) {
-            assertTrue(error.message.orEmpty().contains("غير مدمج"))
+            assertTrue(error.message.orEmpty().contains("غير جاهز"))
         }
     }
 
