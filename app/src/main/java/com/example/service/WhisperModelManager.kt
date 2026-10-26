@@ -15,64 +15,119 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.Locale
 
-/** Resumable, checksum-verified download of Whisper base INT8 and Silero VAD. */
+/** Resumable, checksum-verified downloads for multilingual Whisper INT8 models and Silero VAD. */
 object WhisperModelManager {
-    private const val MARKER = ".base-int8-verified-v1"
-    private const val MIN_FREE_BYTES = 180L * 1024L * 1024L
-    private const val REVISION = "31dc0cc3b59ba4a0b52941f1d6dce9c0e30311b4"
+    enum class ModelSize(
+        val displayName: String,
+        val approximateSizeMb: Int,
+        val directory: String,
+        val marker: String
+    ) {
+        TINY("Whisper Tiny INT8 + Silero VAD", 105, "stt/whisper-tiny", ".tiny-int8-verified-v1"),
+        BASE("Whisper Base INT8 + Silero VAD", 170, "stt/whisper", ".base-int8-verified-v1")
+    }
+
+    private const val PREFS_NAME = "whisper_model_settings"
+    private const val SELECTED_MODEL_KEY = "selected_model"
+    private const val BASE_REVISION = "31dc0cc3b59ba4a0b52941f1d6dce9c0e30311b4"
+    private const val TINY_REVISION = "18e7b4cce9526312a66981ec3af7b9446b70db66"
 
     private data class ModelFile(
-        val name: String, val url: String, val sha256: String?,
-        val minBytes: Long, val maxBytes: Long
+        val name: String,
+        val url: String,
+        val sha256: String?,
+        val minBytes: Long,
+        val maxBytes: Long
     )
 
-    private val files = listOf(
-        ModelFile("base-encoder.int8.onnx",
-            "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + REVISION + "/base-encoder.int8.onnx",
-            "38d196d447cf451f98193eb013ef1e0d23d83e6967031607497eb9eecbb0a06c",
-            25_000_000L, 40_000_000L),
-        ModelFile("base-decoder.int8.onnx",
-            "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + REVISION + "/base-decoder.int8.onnx",
-            "f0b4d0314d591215f96fbfd78636fa524f51c5949688535b0ebd7f2b5b1f19a3",
-            110_000_000L, 140_000_000L),
-        ModelFile("base-tokens.txt",
-            "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + REVISION + "/base-tokens.txt",
-            null, 750_000L, 900_000L),
-        ModelFile("silero_vad.onnx",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
-            "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
-            500_000L, 1_000_000L)
+    private fun filesFor(model: ModelSize): List<ModelFile> = when (model) {
+        ModelSize.BASE -> listOf(
+            ModelFile("base-encoder.int8.onnx",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + BASE_REVISION + "/base-encoder.int8.onnx",
+                "38d196d447cf451f98193eb013ef1e0d23d83e6967031607497eb9eecbb0a06c",
+                25_000_000L, 40_000_000L),
+            ModelFile("base-decoder.int8.onnx",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + BASE_REVISION + "/base-decoder.int8.onnx",
+                "f0b4d0314d591215f96fbfd78636fa524f51c5949688535b0ebd7f2b5b1f19a3",
+                110_000_000L, 140_000_000L),
+            ModelFile("base-tokens.txt",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/" + BASE_REVISION + "/base-tokens.txt",
+                null, 750_000L, 900_000L)
+        )
+        ModelSize.TINY -> listOf(
+            ModelFile("tiny-encoder.int8.onnx",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-encoder.int8.onnx",
+                "dd5531121627e7e184a6b8f6a6e353edf39b40e328032dfdc146b5a359a3e3d0",
+                12_000_000L, 14_000_000L),
+            ModelFile("tiny-decoder.int8.onnx",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-decoder.int8.onnx",
+                "dd29c14f2104c14c3aca7dc8e13308190bbe4c65be21c82f4b86a27d8326b26b",
+                88_000_000L, 92_000_000L),
+            ModelFile("tiny-tokens.txt",
+                "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/" + TINY_REVISION + "/tiny-tokens.txt",
+                null, 750_000L, 900_000L)
+        )
+    } + ModelFile(
+        "silero_vad.onnx",
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+        "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+        500_000L, 1_000_000L
     )
 
-    fun modelDir(context: Context): File = File(context.filesDir, "stt/whisper")
-    fun modelDisplayName(): String = "Whisper base INT8 + Silero VAD"
-    fun modelApproximateSizeMb(): Int = 170
+    fun selectedModel(context: Context): ModelSize {
+        val stored = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SELECTED_MODEL_KEY, ModelSize.BASE.name)
+        return runCatching { ModelSize.valueOf(stored ?: ModelSize.BASE.name) }
+            .getOrDefault(ModelSize.BASE)
+    }
+
+    fun selectModel(context: Context, model: ModelSize) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(SELECTED_MODEL_KEY, model.name).apply()
+    }
+
+    fun modelDir(context: Context): File = modelDir(context, selectedModel(context))
+
+    private fun modelDir(context: Context, model: ModelSize): File = File(context.filesDir, model.directory)
+
+    fun modelDisplayName(context: Context): String = selectedModel(context).displayName
+
+    fun modelApproximateSizeMb(context: Context): Int = selectedModel(context).approximateSizeMb
+
     fun availableFreeMb(context: Context): Long = context.filesDir.usableSpace / 1_000_000L
 
-    fun isReady(context: Context): Boolean {
-        val dir = modelDir(context)
-        return File(dir, MARKER).isFile && files.all { spec ->
+    fun isReady(context: Context): Boolean = isReady(context, selectedModel(context))
+
+    fun isReady(context: Context, model: ModelSize): Boolean {
+        val dir = modelDir(context, model)
+        return File(dir, model.marker).isFile && filesFor(model).all { spec ->
             val file = File(dir, spec.name)
             file.isFile && file.length() in spec.minBytes..spec.maxBytes
         }
     }
 
-    fun deleteModel(context: Context): Boolean = !modelDir(context).exists() || modelDir(context).deleteRecursively()
+    fun deleteModel(context: Context): Boolean {
+        val dir = modelDir(context)
+        return !dir.exists() || dir.deleteRecursively()
+    }
 
     suspend fun ensureModel(
         context: Context,
         onProgress: suspend (percent: Int, message: String) -> Unit = { _, _ -> }
     ): File = withContext(Dispatchers.IO) {
-        val dir = modelDir(context)
+        val model = selectedModel(context)
+        val dir = modelDir(context, model)
+        val files = filesFor(model)
         if (!dir.exists() && !dir.mkdirs()) throw IOException("تعذر إنشاء مجلد نموذج التفريغ.")
-        if (isReady(context)) {
-            onProgress(100, "نموذج Whisper base المحلي جاهز.")
+        if (isReady(context, model)) {
+            onProgress(100, "نموذج ${model.displayName} المحلي جاهز.")
             return@withContext dir
         }
-        if (dir.usableSpace < MIN_FREE_BYTES) {
-            throw IOException("المساحة الحرة غير كافية؛ يلزم نحو 180 MB لتنزيل نموذج Whisper base.")
+        val minimumFreeBytes = if (model == ModelSize.TINY) 130L * 1024L * 1024L else 180L * 1024L * 1024L
+        if (dir.usableSpace < minimumFreeBytes) {
+            throw IOException("المساحة الحرة غير كافية؛ يلزم نحو ${if (model == ModelSize.TINY) 130 else 180} MB لتنزيل النموذج المحدد.")
         }
-        File(dir, MARKER).delete()
+        File(dir, model.marker).delete()
 
         for ((index, spec) in files.withIndex()) {
             currentCoroutineContext().ensureActive()
@@ -105,8 +160,8 @@ object WhisperModelManager {
                 else IOException("تعذر تنزيل " + spec.name + "؛ تحقق من الاتصال ثم أعد المحاولة.", error)
             }
         }
-        File(dir, MARKER).writeText("Whisper base INT8 + Silero VAD; verified")
-        onProgress(100, "اكتمل تنزيل النموذج والتحقق من ملفاته.")
+        File(dir, model.marker).writeText(model.displayName + "; files verified")
+        onProgress(100, "اكتمل تنزيل " + model.displayName + " والتحقق من ملفاته.")
         dir
     }
 
