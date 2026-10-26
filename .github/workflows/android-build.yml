@@ -45,7 +45,8 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Restore stable debug keystore
-        uses: actions/cache@v4
+        id: debug_keystore_cache
+        uses: actions/cache/restore@v4
         with:
           path: debug.keystore
           key: subvid-debug-keystore-v1
@@ -65,6 +66,13 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
+
+      - name: Save stable debug keystore
+        if: steps.debug_keystore_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: debug.keystore
+          key: subvid-debug-keystore-v1
 
       - name: Build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
