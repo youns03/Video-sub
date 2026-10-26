@@ -78,7 +78,8 @@ fun VideoPlayerPreview(
     var playerError by remember(videoPath) { mutableStateOf<String?>(null) }
 
     DisposableEffect(videoPath, videoView) {
-        onDispose { videoView?.stopPlayback() }
+        val playerToDispose = videoView
+        onDispose { playerToDispose?.stopPlayback() }
     }
 
     LaunchedEffect(videoView, isPlaying, videoPath) {
