@@ -44,17 +44,27 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Create debug keystore
+      - name: Restore stable debug keystore
+        uses: actions/cache@v4
+        with:
+          path: debug.keystore
+          key: subvid-debug-keystore-v1
+
+      - name: Create debug keystore if missing
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ -f debug.keystore ]; then
+            echo "Using the cached debug signing key."
+          else
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
