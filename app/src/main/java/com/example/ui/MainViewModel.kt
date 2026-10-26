@@ -18,8 +18,6 @@ import com.example.service.VideoDownloaderService
 import com.example.service.VideoProcessingPipeline
 import com.example.service.VideoSubtitleMerger
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +59,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _statusNotice = MutableStateFlow<String?>(null)
     val statusNotice: StateFlow<String?> = _statusNotice.asStateFlow()
 
-    private var playbackJob: Job? = null
     private var lastUsedPreset: PresetSample? = null
 
     fun setInputUrl(url: String) {
@@ -344,13 +341,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Playback Controller
+    // Playback state is driven by the real Android VideoView, not a simulated timer.
     fun togglePlayPause() {
-        if (_isPlaying.value) {
-            pausePlayback()
-        } else {
-            startPlayback()
-        }
+        if (_isPlaying.value) pausePlayback() else startPlayback()
     }
 
     fun seekTo(positionMs: Long) {
@@ -358,32 +351,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _playbackPositionMs.value = positionMs.coerceIn(0L, totalMs)
     }
 
+    fun updatePlaybackPosition(positionMs: Long) {
+        val totalMs = ((currentProject.value?.durationSeconds ?: 30) * 1000L).coerceAtLeast(1000L)
+        _playbackPositionMs.value = positionMs.coerceIn(0L, totalMs)
+    }
+
+    fun onPlaybackEnded() {
+        _isPlaying.value = false
+        _playbackPositionMs.value = 0L
+    }
+
     private fun startPlayback() {
         _isPlaying.value = true
-        playbackJob?.cancel()
-        playbackJob = viewModelScope.launch {
-            val totalMs = ((currentProject.value?.durationSeconds ?: 30) * 1000L).coerceAtLeast(1000L)
-            while (_isPlaying.value) {
-                delay(100)
-                val next = _playbackPositionMs.value + 100
-                if (next >= totalMs) {
-                    _playbackPositionMs.value = 0L
-                    _isPlaying.value = false
-                    break
-                } else {
-                    _playbackPositionMs.value = next
-                }
-            }
-        }
     }
 
     fun pausePlayback() {
         _isPlaying.value = false
-        playbackJob?.cancel()
     }
 
     override fun onCleared() {
         super.onCleared()
-        playbackJob?.cancel()
     }
 }
